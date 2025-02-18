@@ -22,6 +22,7 @@ type Config = {
     message: string,
     name: string,
     pattern: string,
+    flags: string, // A string consisting of 'g' (global), 'm' (multiline), 'i' (case insensitive), 'y' (sticky search), and 'u' (unicode support)
     severity?: Severity
 };
 
@@ -31,6 +32,7 @@ class Default
     static FixType: FixType = 'replace';
     static Language = 'plaintext';
     static MaxLines = 1;
+    static Flags = ''; // TODO: Maybe change defaults.
     static Severity: Severity = 'Warning';
 }
 
@@ -83,40 +85,65 @@ export default class Rule
                 message,
                 name,
                 pattern,
-                severity }) => (
-                (fixType === undefined || FixTypes[fixType] !== undefined) &&
-                (maxLines === undefined || maxLines >= 0) &&
-                (!!message) &&
-                (language === undefined || !!language) &&
-                (!!name) &&
-                (!!pattern) &&
-                (severity === undefined || vscode.DiagnosticSeverity[severity] !== undefined) &&
-                (fix === undefined || fix !== null)
-            ))
-            .map(({
-                fixType,
-                language = globalLanguage,
-                ...info
-            }) => ({
-                ...info,
-                fixType: fixType || Default.FixType,
-                language: language || Default.Language
-            }))
-            .flatMap(({ language, ...info }) =>
-                !Array.isArray(language)
-                    ? [{ ...info, language }]
-                    : language.map(language => ({
-                        ...info,
-                        language: language || Default.Language
-                    })))
-            .reduce((rules, {
-                fix,
-                fixType,
-                language,
-                maxLines,
-                pattern,
-                severity,
-                ...info }) => ({
+                flags,
+                severity }) => {
+                    // Filter any rules that are not properly defined.
+                    return (
+                        // if 'fixType' given, check that it is found in the FixTypes enumeration.
+                        (fixType === undefined || FixTypes[fixType] !== undefined) &&
+                        // If maxLines defined, check that it is positive
+                        (maxLines === undefined || maxLines >= 0) && // !! Should be > 0?
+
+                        // Require that a message is defined.
+                        (!!message) &&
+                        // If language is given, check that ...(?)
+                        (language === undefined || !!language) &&
+                        // Require that name is define.
+                        (!!name) &&
+                        // Require that pattern is defined.
+                        (!!pattern) &&
+                        // (flags == undefined || ) // TODO
+                        // If the severity is defined, check that it is found in vscode.DiagnosticSeverity.
+                        (severity === undefined || vscode.DiagnosticSeverity[severity] !== undefined) &&
+                        // If the fix is defined, require that is not null.
+                        (fix === undefined || fix !== null)
+                    );
+                })
+            .map( // Set default values for the fixType and language.
+                ({
+                    fixType,
+                    language = globalLanguage,
+                    flags,
+                    ...info
+                }) => ({
+                    ...info,
+                    fixType: fixType || Default.FixType,
+                    language: language || Default.Language,
+                    flags: flags || Default.Flags
+                })
+            )
+            // Handle the case where languages are given as a list. The result is to generate a distinct item for each language in the list.
+            .flatMap(({ language, ...info }) => {
+                if (!Array.isArray(language)) {// If a single language...
+                    return [{ ...info, language }];
+                }
+                
+                // Otherwise, language is an array...
+                return language.map(lang => ({
+                    ...info,
+                    language: lang || Default.Language
+                }));
+            })
+            .reduce( // 
+                (rules, {
+                    fix,
+                    fixType,
+                    language,
+                    maxLines,
+                    pattern,
+                    flags,
+                    severity,
+                    ...info }) => {return ({
                     ...rules, [language]: [
                         ...(rules[language] ?? []), {
                             ...info,
@@ -129,11 +156,12 @@ export default class Rule
                             maxLines: fixType === 'replace'
                                         ? (maxLines ?? Default.MaxLines)
                                         : (maxLines ?? 0),
-                            regex: new RegExp(pattern, 'gim'),
+                            regex: new RegExp(pattern, `gm${flags}`),
                             severityCode: vscode.DiagnosticSeverity[severity!] ??
                                     vscode.DiagnosticSeverity[Default.Severity]
                         }
                     ]
-                }), <Partial<Record<string, Rule[]>>>{});
+                })}, <Partial<Record<string, Rule[]>>>{}
+            );
     }
 }
