@@ -36,6 +36,7 @@ class Default
 
 export default class Rule
 {
+    // Create a global list of all rules.
     private static rules: Partial<Record<string, Rule[]>> = {};
 
     private constructor(
@@ -59,6 +60,7 @@ export default class Rule
     }
 
     static monitorRules() {
+        // Whever the relint configurations change, update the list of rules.
         vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration(ConfigSectionName)) {
                 this.rules = this.getRules();
@@ -67,10 +69,11 @@ export default class Rule
     }
 
     static getRules(): Partial<Record<string, Rule[]>> {
-        const configuration = vscode.workspace.getConfiguration(ConfigSectionName);
-        const globalLanguage = configuration.get<string | string[]>('language') || Default.Language;
-        const ruleList = configuration.get<Config[]>('rules') ?? [];
+        const relint_configuration = vscode.workspace.getConfiguration(ConfigSectionName);
+        const globalLanguage = relint_configuration.get<string | string[]>('language') || Default.Language;
+        const ruleList = relint_configuration.get<Config[]>('rules') ?? [];
 
+        // TODO: Split this into multiple steps.
         return ruleList
             .filter(({
                 fix,

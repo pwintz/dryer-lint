@@ -17,16 +17,20 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
     const diagnostics = vscode.languages.createDiagnosticCollection(DiagnosticCollectionName);
     context.subscriptions.push(diagnostics);
 
+    // If there is an active text editor, then immediately refresh the diagnostics to include the relint diagnositics.
+    // TODO: This should occur after subscribing onDidChangeActiveTextEditor, in case an editor becomes active between these actions.
     if (vscode.window.activeTextEditor) {
         refreshDiagnostics(vscode.window.activeTextEditor.document, diagnostics);
     }
 
+    // Update the diagnostics whenever the a document becomes active.
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor) { refreshDiagnostics(editor.document, diagnostics); }
         })
     );
 
+    // Update the diagnostics whenever the text of a document changes.
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event =>
             refreshDiagnostics(event.document, diagnostics))
@@ -34,27 +38,29 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
 }
 
 function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
+    // If the current document is not in the workspace, then don't update diagnostics.
+    // ?? Are we not able apply linting to non-workspace documents? 
     if (!vscode.workspace.getWorkspaceFolder(document.uri)) return;
 
     const rules = Rule.all[document.languageId];
 
     const diagnosticList: Diagnostic[] = [];
 
-    if (rules?.length) {
+    if (rules?.length) {// If there are any rules in the current language...
         const numLines = document.lineCount;
 
-        for (const rule of rules) {
+        for (const rule of rules) { // Iterate over all of the rules
             const maxLines = rule.maxLines || numLines;
 
             let line = 0;
             while (line < numLines) {
                 const endLine = Math.min(line + maxLines, numLines)
-                let textRange = document
-                    .lineAt(line)
-                    .range
-                    .union(document
-                        .lineAt(endLine - 1)
-                        .rangeIncludingLineBreak);
+                let textRange = document.lineAt(line)
+                                        .range
+                                        .union(document
+                                                .lineAt(endLine - 1) 
+                                                .rangeIncludingLineBreak
+                                        );
 
                 const text = document.getText(textRange);
                 let array: RegExpExecArray | null;
@@ -68,7 +74,7 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
                             diagnosticList.push(entry);
                         }
                     }
-                } else {
+                } else { // Otherwise, fix type is 'reorder_asc' or 'reorder_desc'
                     const sorter: string[] = [];
 
                     let entry: Diagnostic | undefined;
@@ -119,7 +125,8 @@ function mergeDiagnostic(
             rule: Rule): Diagnostic | undefined {
     let diagnostic = diagnosticList.find(diagnostic =>
         diagnostic.code === rule.name &&
-        diagnostic.effectiveRange.intersection(range));
+        diagnostic.effectiveRange.intersection(range)
+    );
     if (diagnostic) {
         if (diagnostic.range.intersection(range)) {
             diagnostic.range = diagnostic.range.union(range);

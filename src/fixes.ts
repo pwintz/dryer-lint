@@ -26,12 +26,13 @@ export default function activateFixes(context: vscode.ExtensionContext) {
     registerFixes(context, fixes);
 
     vscode.workspace.onDidChangeConfiguration(event => {
+        // When the user changes the list of rules, register all of the current fixes.
         if (event.affectsConfiguration(ConfigSectionName)) {
             const newFixes = getFixes();
 
             for (const [i, fix] of fixes.entries()) {
                 const j = newFixes.findIndex(({ ruleId }) => ruleId === fix.ruleId);
-                if (j === -1) {
+                if (j === -1) {// Not found
                     deregisterFix(context, fix);
                     fixes.splice(i, 1);
                 } else {
