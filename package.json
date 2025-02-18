@@ -114,6 +114,11 @@
                                         ],
                                         "default": "replace",
                                         "description": "The type of fix to apply. `reorder_*` fixes can be controlled using substitution tokens in `quickFix`."
+                                    }, 
+                                    "caseInsensitive": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Enable case insensitive Regex matching, to ignore capitalization."
                                     }
                                 }
                             }

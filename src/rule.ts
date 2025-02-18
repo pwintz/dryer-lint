@@ -22,7 +22,7 @@ type Config = {
     message: string,
     name: string,
     pattern: string,
-    flags: string, // A string consisting of 'g' (global), 'm' (multiline), 'i' (case insensitive), 'y' (sticky search), and 'u' (unicode support)
+    caseInsensitive: boolean,
     severity?: Severity
 };
 
@@ -32,7 +32,7 @@ class Default
     static FixType: FixType = 'replace';
     static Language = 'plaintext';
     static MaxLines = 1;
-    static Flags = ''; // TODO: Maybe change defaults.
+    static CaseInsensitive = false;
     static Severity: Severity = 'Warning';
 }
 
@@ -76,7 +76,7 @@ export default class Rule
         const ruleList = relint_configuration.get<Config[]>('rules') ?? [];
 
         const valid_rules = ruleList.filter(
-            ({fix, fixType, language, maxLines, message, name, pattern, flags, severity }) => {
+            ({fix, fixType, language, maxLines, message, name, pattern, caseInsensitive, severity }) => {
                             
                 
             // if 'fixType' given, check that it is found in the FixTypes enumeration.
@@ -111,8 +111,8 @@ export default class Rule
                 return false
             }
 
-            if (flags && !isValidRegexFlags(flags)) {
-                vscode.window.showErrorMessage(`Invalid regex flags "${flags}" for the relint rule "${name}" Note that "g" and "m" are included by default.`)
+            if (caseInsensitive && typeof caseInsensitive !== "boolean") {
+                vscode.window.showErrorMessage(`Value of caseInsensitive="${caseInsensitive}" should be "true" or "false" for the relint rule "${name}".`)
                 return false
             }
 
@@ -145,13 +145,13 @@ export default class Rule
                 ({
                     fixType,
                     language = globalLanguage,
-                    flags,
+                    caseInsensitive,
                     ...info
                 }) => ({
                     ...info,
                     fixType: fixType || Default.FixType,
                     language: language || Default.Language,
-                    flags: flags || Default.Flags
+                    caseInsensitive: caseInsensitive || Default.CaseInsensitive
                 })
             )
             // Handle the case where languages are given as a list. The result is to generate a distinct item for each language in the list.
@@ -167,10 +167,11 @@ export default class Rule
                 }));
             })
             .reduce( // 
-                (rules, {fix, fixType, language, maxLines, pattern, flags, severity, ...info }) => {
+                (rules, {fix, fixType, language, maxLines, pattern, caseInsensitive, severity, ...info }) => {
                     var regex: RegExp;
                     try {
-                        regex = new RegExp(pattern, `gm${flags}`);
+                        var flags = caseInsensitive? `gmi` : `gm`
+                        regex = new RegExp(pattern, flags);
                     } catch (error) {
                         vscode.window.showErrorMessage(`Could not construct Regex. Error: "${error}".`)
                         return rules
@@ -197,12 +198,4 @@ export default class Rule
                 }, <Partial<Record<string, Rule[]>>>{}
             );
     }
-}
-
-function isValidRegexFlags(flags: string): boolean {
-    // We omitt "g" and "m" because they are always included when we construct our regular expressions. 
-    const validFlags = new Set(["i", "s", "u", "y"]);
-
-    // Ensure the string only contains valid characters and has no duplicates
-    return [...flags].every((char, i, arr) => validFlags.has(char) && arr.indexOf(char) === i);
 }
