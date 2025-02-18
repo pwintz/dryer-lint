@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import Rule from './rule';
 import { sortedIndex } from './util';
 
-export const DiagnosticCollectionName = 'relint';
+export const DiagnosticCollectionName = 'relint-2';
 
 export class Diagnostic extends vscode.Diagnostic
 {

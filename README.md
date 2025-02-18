@@ -154,3 +154,31 @@ The following is a simple configuration that issues diagnostics for maximum char
     ...
 }
 ```
+
+# Development
+
+This section describes how to set up relint for development.
+
+Install Node.js and npm/
+
+1. Download and install Node.js (LTS version recommended).
+1. `npm` (Node Package Manager) comes bundled with Node.js.
+
+Clone and open this repository in VS Code.
+
+To install the Node.js dependencies listed in `package.json`, run the following command within the root directory of the repo. 
+```
+npm install
+```
+
+<!-- TODO: Finish developement setup. -->
+
+To rebuild the extension, run `npm run compile` in the root of the repo. 
+Then, run `Developer: Restart Extension Host` in the command window. 
+
+To setup the extension to run within another workspace, for testing, then place it at 
+```
+.vscode/extensions/relint-2
+```
+within the workspace. 
+Then, open the Extensions panel and select `relint-2` for installation.
