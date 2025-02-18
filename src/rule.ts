@@ -75,41 +75,73 @@ export default class Rule
         const globalLanguage = relint_configuration.get<string | string[]>('language') || Default.Language;
         const ruleList = relint_configuration.get<Config[]>('rules') ?? [];
 
-        // TODO: Split this into multiple steps.
-        return ruleList
-            .filter(({
-                fix,
-                fixType,
-                language,
-                maxLines,
-                message,
-                name,
-                pattern,
-                flags,
-                severity }) => {
-                    // Filter any rules that are not properly defined.
-                    return (
-                        // if 'fixType' given, check that it is found in the FixTypes enumeration.
-                        (fixType === undefined || FixTypes[fixType] !== undefined) &&
-                        // If maxLines defined, check that it is positive
-                        (maxLines === undefined || maxLines >= 0) && // !! Should be > 0?
+        const valid_rules = ruleList.filter(
+            ({fix, fixType, language, maxLines, message, name, pattern, flags, severity }) => {
+                            
+                
+            // if 'fixType' given, check that it is found in the FixTypes enumeration.
+            if (fixType !== undefined && FixTypes[fixType] === undefined) {
+                vscode.window.showErrorMessage(`Invalid fix type "${fixType}" for the relint rule "${name}".`)
+                return false
+            }
 
-                        // Require that a message is defined.
-                        (!!message) &&
-                        // If language is given, check that ...(?)
-                        (language === undefined || !!language) &&
-                        // Require that name is define.
-                        (!!name) &&
-                        // Require that pattern is defined.
-                        (!!pattern) &&
-                        // (flags == undefined || ) // TODO
-                        // If the severity is defined, check that it is found in vscode.DiagnosticSeverity.
-                        (severity === undefined || vscode.DiagnosticSeverity[severity] !== undefined) &&
-                        // If the fix is defined, require that is not null.
-                        (fix === undefined || fix !== null)
-                    );
-                })
-            .map( // Set default values for the fixType and language.
+            // If maxLines defined, check that it is positive
+            if (maxLines !== undefined && !(maxLines >= 0)) {// !! Should maxLines be > 0?
+                vscode.window.showErrorMessage(`Invalid maxLines="${maxLines}" for the relint rule "${name}".`)
+                return false
+            }
+
+            if (!message){
+                vscode.window.showErrorMessage(`Missing message for the relint rule "${name}".`)
+                return false
+            }
+
+            if (language !== undefined && !language){
+                vscode.window.showErrorMessage(`Invalid language for the relint rule "${name}".`)
+                return false
+            }
+
+            if (!name){
+                vscode.window.showErrorMessage(`Missing name for the relint rule with pattern="${pattern}".`)
+                return false
+            }
+
+            if (!pattern){
+                vscode.window.showErrorMessage(`Invalid pattern "${pattern}".`)
+                return false
+            }
+
+            if (flags && !isValidRegexFlags(flags)) {
+                vscode.window.showErrorMessage(`Invalid regex flags "${flags}" for the relint rule "${name}" Note that "g" and "m" are included by default.`)
+                return false
+            }
+
+            if (severity !== undefined && vscode.DiagnosticSeverity[severity] === undefined) {
+                vscode.window.showErrorMessage(`Invalid severity "${severity}" for the relint rule "${name}".`)
+                return false
+            }
+
+            if (severity !== undefined && vscode.DiagnosticSeverity[severity] === undefined) {
+                vscode.window.showErrorMessage(`Invalid severity "${severity}" for the relint rule "${name}".`)
+                return false
+            }
+
+            if (fix !== undefined && fix === null) {
+                vscode.window.showErrorMessage(`Invalid fix "${fix}" for the relint rule "${name}".`)
+                return false
+            }
+
+            return true
+        });
+        
+        var n_invalid_rules = ruleList.length - valid_rules.length
+        if (n_invalid_rules == 0) {
+            vscode.window.setStatusBarMessage(`Relint: ${ruleList.length} rules OK.`, 30*1000);
+        } else {
+            vscode.window.setStatusBarMessage(`Relint: ${n_invalid_rules} invalid rule(s).`, 30*1000);
+        }
+
+        return valid_rules.map( // Set default values for the fixType and language.
                 ({
                     fixType,
                     language = globalLanguage,
@@ -135,33 +167,42 @@ export default class Rule
                 }));
             })
             .reduce( // 
-                (rules, {
-                    fix,
-                    fixType,
-                    language,
-                    maxLines,
-                    pattern,
-                    flags,
-                    severity,
-                    ...info }) => {return ({
-                    ...rules, [language]: [
-                        ...(rules[language] ?? []), {
-                            ...info,
-                            id: `/${pattern}/`,
-                            fixType,
-                            fix: fixType === 'replace'
-                                        ? fix
-                                        : fix || Default.Fix,
-                            language,
-                            maxLines: fixType === 'replace'
-                                        ? (maxLines ?? Default.MaxLines)
-                                        : (maxLines ?? 0),
-                            regex: new RegExp(pattern, `gm${flags}`),
-                            severityCode: vscode.DiagnosticSeverity[severity!] ??
+                (rules, {fix, fixType, language, maxLines, pattern, flags, severity, ...info }) => {
+                    var regex: RegExp;
+                    try {
+                        regex = new RegExp(pattern, `gm${flags}`);
+                    } catch (error) {
+                        vscode.window.showErrorMessage(`Could not construct Regex. Error: "${error}".`)
+                        return rules
+                    }
+                    return ({
+                        ...rules, [language]: [
+                            ...(rules[language] ?? []), {
+                                ...info,
+                                id: `/${pattern}/`,
+                                fixType,
+                                fix: fixType === 'replace'
+                                    ? fix
+                                    : fix || Default.Fix,
+                                language,
+                                maxLines: fixType === 'replace'
+                                    ? (maxLines ?? Default.MaxLines)
+                                    : (maxLines ?? 0),
+                                regex: regex,
+                                severityCode: vscode.DiagnosticSeverity[severity!] ??
                                     vscode.DiagnosticSeverity[Default.Severity]
-                        }
-                    ]
-                })}, <Partial<Record<string, Rule[]>>>{}
+                            }
+                        ]
+                    });
+                }, <Partial<Record<string, Rule[]>>>{}
             );
     }
+}
+
+function isValidRegexFlags(flags: string): boolean {
+    // We omitt "g" and "m" because they are always included when we construct our regular expressions. 
+    const validFlags = new Set(["i", "s", "u", "y"]);
+
+    // Ensure the string only contains valid characters and has no duplicates
+    return [...flags].every((char, i, arr) => validFlags.has(char) && arr.indexOf(char) === i);
 }
