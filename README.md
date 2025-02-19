@@ -46,7 +46,7 @@ I use an awesome plugin called [Error Lens](https://marketplace.visualstudio.com
 - **Replace** the matched text
 - **Reorder** the matched text
 
-The configuration options can be found in the `contributes.configuration` section of the [package.json](package.json).
+The configuration options can be found in the `contributes.configuration` section of the [`package.json`](package.json).
 
 ## More examples
 

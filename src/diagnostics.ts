@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import Rule from './rule';
 import { sortedIndex } from './util';
+import { relintLog } from './extension'
 
 export const DiagnosticCollectionName = 'relint-2';
 
@@ -46,14 +47,15 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
 
     const diagnosticList: Diagnostic[] = [];
 
+    relintLog(`Refreshing relint diagnostics for ${rules?.length} rules in ${document} `)
     if (rules?.length) {// If there are any rules in the current language...
         const numLines = document.lineCount;
 
         for (const rule of rules) { // Iterate over all of the rules
             const maxLines = rule.maxLines || numLines;
+            relintLog(`Checking rule "${rule.name}."`)
 
-            let line = 0;
-            while (line < numLines) {
+            for(var line=0; line < numLines; line++) {
                 const endLine = Math.min(line + maxLines, numLines)
                 let textRange = document.lineAt(line)
                                         .range
@@ -67,12 +69,22 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
 
                 if (rule.fixType === 'replace') {
                     while (array = rule.regex.exec(text)) {
+                        // Construct diagnostic message.
+                        var message = rule.message
+                        for (var i = 1; i < array.length; i++) {
+                            if (array){
+                                // Replace "$1" in the message with the first capture group, "$2" with the second and so on.
+                                message = message.replace(/\$(\d+)/g, (_, num) => array?.[Number(num)] || `<regex capture group ${num} not found>`);
+                            }
+                        }
+
                         const range = rangeFromMatch(document, textRange, array);
                         const entry = mergeDiagnostic(diagnosticList, document, range, rule)
-                            ?? createDiagnostic(diagnostics.name, range, rule);
+                            ?? createDiagnostic(diagnostics.name, range, rule, message);
                         if (!diagnosticList.includes(entry)) {
                             diagnosticList.push(entry);
                         }
+                        relintLog(`The rule "${rule.name}" with message "${message}" matched "${array}".`);
                     }
                 } else { // Otherwise, fix type is 'reorder_asc' or 'reorder_desc'
                     const sorter: string[] = [];
@@ -84,7 +96,7 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
                         const range = rangeFromMatch(document, textRange, array);
                         if (!entry) {
                             entry = mergeDiagnostic(diagnosticList, document, range, rule)
-                                ?? createDiagnostic(diagnostics.name, range, rule);
+                                ?? createDiagnostic(diagnostics.name, range, rule, rule.message);
                         } else {
                             addRelatedInfo(entry, document, range);
                         }
@@ -110,9 +122,9 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
                 }
 
                 if (textRange.end.line >= numLines - 1) { break; }
-                line += 1;
             }
         }
+        relintLog(`Finished refreshing relint diagnostics for ${rules?.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
     }
 
     diagnostics.set(document.uri, diagnosticList);
@@ -152,8 +164,9 @@ function addRelatedInfo(diagnostic: Diagnostic, document: vscode.TextDocument, r
     }
 }
 
-function createDiagnostic(source: string, range: vscode.Range, rule: Rule): Diagnostic {
-    const diagnostic = new Diagnostic(range, rule.message, rule.severityCode);
+function createDiagnostic(source: string, range: vscode.Range, rule: Rule, message: string): Diagnostic {
+    
+    const diagnostic = new Diagnostic(range, message, rule.severityCode);
     diagnostic.source = source;
     diagnostic.code = rule.name;
     return diagnostic;
