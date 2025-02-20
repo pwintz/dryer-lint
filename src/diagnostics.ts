@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import Rule from './rule';
 import { sortedIndex } from './util';
+import * as util from './util';
 import { relintLog } from './extension'
 
 export const DiagnosticCollectionName = 'relint-2';
@@ -44,10 +45,21 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
     if (!vscode.workspace.getWorkspaceFolder(document.uri)) return;
 
     const rules = Rule.all[document.languageId];
+    relintLog(`Refreshing relint diagnostics for ${rules?.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
+
+    // Track whether Relint is enabled or disabled via comments.
+    var relintEnabled = true;
+
+    var commentChar = util.getLineCommentChar(document);
+    if (!commentChar) {
+        commentChar = "(?://|#)"
+    }
+    const escapedCommentChar = commentChar.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const relintCommentConfigRegex = new RegExp('^[ \\t]*'+ escapedCommentChar + '[ \t]*relint:[ \\t]*(?<config>.*?)[ \\t]*$', 'mi');
+    relintLog("Regex for finding relint config comments: " + relintCommentConfigRegex.source)
 
     const diagnosticList: Diagnostic[] = [];
 
-    relintLog(`Refreshing relint diagnostics for ${rules?.length} rules in ${document} `)
     if (rules?.length) {// If there are any rules in the current language...
         const numLines = document.lineCount;
 
@@ -65,8 +77,27 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
                                         );
 
                 const text = document.getText(textRange);
-                let array: RegExpExecArray | null;
 
+                // Check if the text is enabling or disabling Relint.
+                // TODO: Move the code for enabling or disabling Relint via comments into a dedicated function. 
+                // TODO: It would also be a good idea to sweep through the file once and find all of the config comments, and store the results, instead of checking repeatedly.
+                var commentConfigMatch = text.match(relintCommentConfigRegex);
+                if (commentConfigMatch?.groups) {
+                    // If the config text is "disable", "disabled", or "enabled=false" (with optional spaces around the equal sign), then disable relint.
+                    if (commentConfigMatch.groups.config.match(/(?:disabled?|enabled[ \t]*=[ \t]*false)/)){
+                        relintEnabled = false;
+                        relintLog(`Disabled Relint checking starting at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
+                    } else if (commentConfigMatch.groups.config.match(/enabled?(?:[ \t]*:=[ \t]*true)?/)) {
+                        // If the config text is "enable", "enabled", or "enabled=true" (with optional spaces around the equal sign), then reenable relint.
+                        relintEnabled = true;
+                        relintLog(`Enabled Relint checking starting at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
+                    }
+                }
+                if (!relintEnabled) {
+                    continue; // Go to the next line.
+                }
+
+                let array: RegExpExecArray | null;
                 if (rule.fixType === 'replace') {
                     while (array = rule.regex.exec(text)) {
                         // Construct diagnostic message.
