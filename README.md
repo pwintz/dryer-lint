@@ -1,12 +1,12 @@
-# relint
+# `relint`: Regular Expression Linting VS Code Extension
 
-`relint` is a language and framework agnostic linter. Its main purpose is to serve as tooling for programming languages that do not yet have their own specialized linters.
+The `relint` Extension is a language and framework agnostic linter for VS Code. Its main purpose is to serve as tooling for programming languages that do not yet have their own specialized linters.
 
-## Demo
+## Short Demo
 
-Here is a configuration I use for one of my [Nim](https://nim-lang.org/) projects:
+Here is a short demo showing two relint rules for checking [Nim](https://nim-lang.org/) projects:
 
-```json
+```jsonc
 // .vscode/settings.json
 {
     ...
@@ -15,17 +15,17 @@ Here is a configuration I use for one of my [Nim](https://nim-lang.org/) project
         "language": "nim",
         "rules": [
             {
-                "fix": "(addr)$1$2$3$4",
-                "message": "syntax: use command syntax for `addr`",
                 "name": "syntax-addr",
                 "pattern": "(?<=\\W|^)(?:addr\\((.+)\\)|addr (.+)|addr: (.+)|(.+)\\.addr)",
+                "message": "syntax: use command syntax for `addr`",
+                "fix": "(addr)$1$2$3$4",
                 "severity": "Warning"
             },
             {
-                "fix": "{.$1 $2}",
-                "message": "syntax: use spaces to separate pragmas",
                 "name": "syntax-pragma",
                 "pattern": "{\\.(.+),\\ *(.*)}",
+                "message": "syntax: use spaces to separate pragmas",
+                "fix": "{.$1 $2}",
                 "severity": "Warning"
             }
         ]
@@ -48,11 +48,54 @@ I use an awesome plugin called [Error Lens](https://marketplace.visualstudio.com
 
 The configuration options can be found in the `contributes.configuration` section of the [`package.json`](package.json).
 
+# Usage Guide
+
+To create a `relint` linting rules, modify `.vscode/settings.json` within your workspace.  
+```jsonc
+"relint": {
+    "language": "language name or array of language names",
+    "rules": [
+        {
+            "name": "Rule name",
+            "pattern": "Java script regular expression that shows diagnostic when matched",
+            "message": "Diagnostic message",
+            "fix": "A string to replace the matched pattern.",
+            "severity": "'Hint', 'Information', 'Warning', or 'Error'"
+        },
+        // More rules...
+    ]
+},
+```
+
+The "fix" and "message" fields can use replacements from the matched RegEx groups.
+In particular, if "$1" in "fix" or "messages", then it is replaced with the contents of the first group capture, and "$2" is replaced with the second, and so on.
+
+You can disable relint for portions of a file using an inline comment such as (in C++):
+```c++
+// relint: disable
+```
+The 
+The following are comments also disable `relint`:
+```c++
+// relint: disabled
+// relint: enable=false
+// relint: enabled=false
+```
+To renable `relint`, use any of the following:
+```c++
+// relint: enable
+// relint: enabled
+// relint: enable=true
+// relint: enabled=true
+```
+The inline comment must be the first content in the line of code except for empty space. 
+
+
 ## More examples
 
 The following is a more complex example that uses the **reorder** feature combined with the **replace** function to organize imports at the top of a Nim file.
 
-```json
+```jsonc
 // .vscode/settings.json
 {
     ...
@@ -132,7 +175,7 @@ The `name` configuration plays an important part here in that all rules with the
 
 The following is a simple configuration that issues diagnostics for maximum characters exceeded in a line:
 
-```json
+```jsonc
 {
     ...
 
@@ -162,23 +205,28 @@ This section describes how to set up relint for development.
 Install Node.js and npm/
 
 1. Download and install Node.js (LTS version recommended).
-1. `npm` (Node Package Manager) comes bundled with Node.js.
+1. The Node Package Manager (`npm`) comes bundled with Node.js.
 
-Clone and open this repository in VS Code.
-
-To install the Node.js dependencies listed in `package.json`, run the following command within the root directory of the repo. 
+After installing NPM, clone this repository and open it in VS Code.
+Then, to install the Node.js dependencies listed in `package.json`, run the following command within the root directory of the repo. 
 ```
 npm install
 ```
-
-<!-- TODO: Finish developement setup. -->
-
-To rebuild the extension, run `npm run compile` in the root of the repo. 
-Then, run `Developer: Restart Extension Host` in the command window. 
-
-To setup the extension to run within another workspace, for testing, then place it at 
+Once you have all of the dependencies, you should be able to build this extension using 
 ```
-.vscode/extensions/relint-2
+npm run compile
 ```
-within the workspace. 
-Then, open the Extensions panel and select `relint-2` for installation.
+in the root of this repository. 
+
+## Test Extension in another Workspace 
+To run this extension in a workspace—without building and installing a VS Code extension package globally—follow these steps:
+
+0. Open the workspace where you want to test `relint`.
+1. Create `.vscode/extension` as a directory relative to the root of your workspace (if it does not already exist).
+2. Clone `relint` into `.vscode/extension`. The resulting path should be `.vscode/extension/relint`. 
+3. Change your working directory to `.vscode/extension/relint` and run `npm install` (as described in the previous section) to install all of `relint`s depedencies. 
+4. Run `npm run compile` to compile the project.
+5. Open the Extensions panel and select `relint` from the "Recommended" subpanel. Click "Install Workspace Extension."
+6. Run `Developer: Restart Extension Host` in the VS Code Command window (`CTRL+SHIFT+P`, by default on Windows) .
+
+To update the extension after changing the code, repeat steps 4 and 6 (`npm run compile` and run `Developer: Restart Extension Host`).

@@ -1,6 +1,6 @@
 {
-    "name": "relint2",
-    "displayName": "relint-2",
+    "name": "relint",
+    "displayName": "relint",
     "publisher": "pwintz",
     "description": "Regex-based linting for any language. Based on relint by n0brain3r.",
     "icon": "assets/icon.png",
@@ -32,9 +32,9 @@
     ],
     "contributes": {
         "configuration": {
-            "title": "relint-2",
+            "title": "relint",
             "properties": {
-                "relint-2": {
+                "relint": {
                     "type": "object",
                     "required": [
                         "rules"

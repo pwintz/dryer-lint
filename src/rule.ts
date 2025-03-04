@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 // Define the name of the configurations used in the user's settings.json.
-export const ConfigSectionName = 'relint-2';
+export const ConfigSectionName = 'relint';
 
 enum FixTypes
 {

@@ -4,7 +4,7 @@ import { sortedIndex } from './util';
 import * as util from './util';
 import { relintLog } from './extension'
 
-export const DiagnosticCollectionName = 'relint-2';
+export const DiagnosticCollectionName = 'relint';
 
 export class Diagnostic extends vscode.Diagnostic
 {
