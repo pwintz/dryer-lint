@@ -53,22 +53,41 @@ The configuration options can be found in the `contributes.configuration` sectio
 To create a `relint` linting rules, modify `.vscode/settings.json` within your workspace.  
 ```jsonc
 "relint": {
-    "language": "language name or array of language names",
+    // Set the name of the languages where your rules apply
+    "language": ["c++", "java"],
     "rules": [
         {
-            "name": "Rule name",
-            "pattern": "Java script regular expression that shows diagnostic when matched",
-            "message": "Diagnostic message",
-            "fix": "A string to replace the matched pattern.",
-            "severity": "'Hint', 'Information', 'Warning', or 'Error'"
+            // "name" is a string used to identify the rule
+            "name": "My Rule",
+            // "pattern" is a JavaScript regular expression that shows diagnostic when matched
+            "pattern": "(apple|orange)",
+            // "message" is a string to show in the "Problems" VS Code panel or other places that diagnostics are shown.
+            "message": "Don't use apples or oranges. Only bananas!",
+            // "fix" (optional) is a string to replace the matched pattern.
+            "fix": "banana",
+            // "severity" (optional) is a string that must contain one of these values: "Hint", "Information", "Warning", or "Error". The default is "Warning".
+            "severity": "'Hint', 'Information', 'Warning', or 'Error'",
+            // "maxLines" (optional) is a positive integer that sets the max number of lines that the pattern is checked against at one time. Default is 1. 
+            "maxLines": 2, 
+            // "caseInsensitive" (optional) is a boolean value that sets whether the regular experssion uses the case insensitive flag "i". Default is false. 
+            "caseInsensitive": true
         },
-        // More rules...
     ]
 },
 ```
 
 The "fix" and "message" fields can use replacements from the matched RegEx groups.
 In particular, if "$1" in "fix" or "messages", then it is replaced with the contents of the first group capture, and "$2" is replaced with the second, and so on.
+The following is an example of a rule for LaTeX, where the first group `(cref|eqref|ref|cite)` is substituted into the error message.
+```jsonc
+{
+    // Check for \cref{}, \cite{}, \ref{}, or \eqref{} occurring without arguments.
+    "name": "Empty Reference or Citation",
+    "message": "Empty \\$1{}.",
+    "pattern": "\\\\(cref|eqref|ref|cite)\\{\\s*\\}",
+    "severity": "Error"
+},
+```
 
 You can disable relint for portions of a file using an inline comment such as (in C++):
 ```c++
