@@ -1,28 +1,24 @@
 {
-    "name": "relint",
-    "displayName": "relint",
-    "publisher": "n0brain3r",
-    "description": "Regex-based linting for any language",
+    "name": "dryer-lint",
+    "displayName": "DRYer Lint",
+    "publisher": "Paul Wintz",
+    "description": "Regex-based linting for any language. Based on relint by n0brain3r.",
     "icon": "assets/icon.png",
     "version": "0.6.2",
     "repository": {
         "type": "git",
-        "url": "https://github.com/n0bra1n3r/relint.git"
+        "url": "https://github.com/pwintz/dryer-lint.git"
     },
     "license": "MIT",
     "keywords": [
         "productivity",
         "visual studio code",
         "rules",
-        "notes",
         "linter",
         "regex"
     ],
     "categories": [
-        "Linters",
-        "Other",
-        "Programming Languages",
-        "Debuggers"
+        "Linters"
     ],
     "engines": {
         "vscode": "^1.50.0"
@@ -32,9 +28,9 @@
     ],
     "contributes": {
         "configuration": {
-            "title": "relint",
+            "title": "dryer-lint",
             "properties": {
-                "relint": {
+                "dryer-lint": {
                     "type": "object",
                     "required": [
                         "rules"

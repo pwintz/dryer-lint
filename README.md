@@ -1,17 +1,19 @@
-# `relint`: Regular Expression Linting VS Code Extension
+# Dryer Lint (Do RegEx Yourself Linter): Regular Expression Linting VS Code Extension
 
-The `relint` Extension is a language and framework agnostic linter for VS Code. Its main purpose is to serve as tooling for programming languages that do not yet have their own specialized linters.
+Dryer Lint is a language- and framework-agnostic linter for VS Code. Its main purpose is to serve as tooling for programming languages that do not yet have their own specialized linters.
+"DRY" stands for "Do RegEx Yourself".
+ 
 
 ## Short Demo
 
-Here is a short demo showing two relint rules for checking [Nim](https://nim-lang.org/) projects:
+Here is a short demo showing two Dryer Lint rules for checking [Nim](https://nim-lang.org/) projects:
 
 ```jsonc
 // .vscode/settings.json
 {
     ...
 
-    "relint": {
+    "dryer-lint": {
         "language": "nim",
         "rules": [
             {
@@ -41,7 +43,7 @@ I use an awesome plugin called [Error Lens](https://marketplace.visualstudio.com
 
 ## Features
 
-`relint` produces configurable diagnostics for *rule violations*, each of which are described by a [regular expression](https://www.regular-expressions.info/). Rule violations can also be assigned fixes, which are repeatedly applied until no matching rule violations are found. Fixes can perform one of two operations:
+Dryer Lint produces configurable diagnostics for *rule violations*, each of which are described by a [regular expression](https://www.regular-expressions.info/). Rule violations can also be assigned fixes, which are repeatedly applied until no matching rule violations are found. Fixes can perform one of two operations:
 
 - **Replace** the matched text
 - **Reorder** the matched text
@@ -50,9 +52,9 @@ The configuration options can be found in the `contributes.configuration` sectio
 
 # Usage Guide
 
-To create a `relint` linting rules, modify `.vscode/settings.json` within your workspace.  
+To create a Dryer Lint linting rules, modify `.vscode/settings.json` within your workspace.  
 ```jsonc
-"relint": {
+"dryer-lint": {
     // Set the name of the languages where your rules apply
     "language": ["c++", "java"],
     "rules": [
@@ -89,23 +91,23 @@ The following is an example of a rule for LaTeX, where the first group `(cref|eq
 },
 ```
 
-You can disable relint for portions of a file using an inline comment such as (in C++):
+You can disable Dryer Lint for portions of a file using an inline comment such as (in C++):
 ```c++
-// relint: disable
+// dryer-lint: disable
 ```
 The 
-The following are comments also disable `relint`:
+The following are comments also disable Dryer Lint:
 ```c++
-// relint: disabled
-// relint: enable=false
-// relint: enabled=false
+// dryer-lint: disabled
+// dryer-lint: enable=false
+// dryer-lint: enabled=false
 ```
-To renable `relint`, use any of the following:
+To renable Dryer Lint, use any of the following:
 ```c++
-// relint: enable
-// relint: enabled
-// relint: enable=true
-// relint: enabled=true
+// dryer-lint: enable
+// dryer-lint: enabled
+// dryer-lint: enable=true
+// dryer-lint: enabled=true
 ```
 The inline comment must be the first content in the line of code except for empty space. 
 
@@ -119,7 +121,7 @@ The following is a more complex example that uses the **reorder** feature combin
 {
     ...
 
-    "relint": {
+    "dryer-lint": {
         "language": "nim",
         "rules": [
             {
@@ -240,12 +242,12 @@ in the root of this repository.
 ## Test Extension in another Workspace 
 To run this extension in a workspace—without building and installing a VS Code extension package globally—follow these steps:
 
-0. Open the workspace where you want to test `relint`.
+0. Open the workspace where you want to test Dryer Lint.
 1. Create `.vscode/extension` as a directory relative to the root of your workspace (if it does not already exist).
-2. Clone `relint` into `.vscode/extension`. The resulting path should be `.vscode/extension/relint`. 
-3. Change your working directory to `.vscode/extension/relint` and run `npm install` (as described in the previous section) to install all of `relint`s depedencies. 
+2. Clone Dryer Lint into `.vscode/extension`. The resulting path should be `.vscode/extension/dryer-lint`. 
+3. Change your working directory to `.vscode/extension/dryer-lint` and run `npm install` (as described in the previous section) to install all of Dryer Lint's depedencies. 
 4. Run `npm run compile` to compile the project.
-5. Open the Extensions panel and select `relint` from the "Recommended" subpanel. Click "Install Workspace Extension."
-6. Run `Developer: Restart Extension Host` in the VS Code Command window (`CTRL+SHIFT+P`, by default on Windows) .
+5. Open the Extensions panel and select "Dryer Lint" from the "Recommended" subpanel. Click "Install Workspace Extension."
+6. Run `Developer: Restart Extension Host` in the VS Code Command window (`CTRL+SHIFT+P`, by default on Windows).
 
 To update the extension after changing the code, repeat steps 4 and 6 (`npm run compile` and run `Developer: Restart Extension Host`).

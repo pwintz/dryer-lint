@@ -1,4 +1,4 @@
-# Change Log
+# Relint Change Log
 
 All notable changes to the "relint" extension will be documented in this file.
 
@@ -61,3 +61,4 @@ All notable changes to the "relint" extension will be documented in this file.
 - Allow group match replacement in diagnostic messages.
 - Make regex case sensitive by default. To make a pattern case sensitie, set the new "caseInsensitive" to true.
 - Show error messages and status bar item for invalid rules.
+
