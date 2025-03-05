@@ -46,10 +46,10 @@ I use an awesome plugin called [Error Lens](https://marketplace.visualstudio.com
 
 ## Features
 
-Dryer Lint produces configurable diagnostics for *rule violations*, each of which are described by a [regular expression](https://www.regular-expressions.info/). Rule violations can also be assigned fixes, which are repeatedly applied until no matching rule violations are found. Fixes can perform one of two operations:
-
-- **Replace** the matched text
-- **Reorder** the matched text
+Dryer Lint produces configurable diagnostics for *rule violations*, each of which are described by a [regular expression](https://www.regular-expressions.info/). 
+Rule violations can also be assigned fixes, which are repeatedly applied until no matching rule violations are found.
+<!-- - **Replace** the matched text -->
+<!-- - **Reorder** the matched text -->
 
 The configuration options can be found in the `contributes.configuration` section of the [`package.json`](package.json).
 
@@ -72,7 +72,7 @@ To create a Dryer Lint linting rules, modify `.vscode/settings.json` within your
             "fix": "banana",
             // "severity" (optional) is a string that must contain one of these values: "Hint", "Information", "Warning", or "Error". The default is "Warning".
             "severity": "'Hint', 'Information', 'Warning', or 'Error'",
-            // "maxLines" (optional) is a positive integer that sets the max number of lines that the pattern is checked against at one time. The default is 1 for `replace` fixes, and 0 for `reorder` fixes.
+            // "maxLines" (optional) is a positive integer that sets the max number of lines that the pattern is checked against at one time. The default is 1 for `replace` fixes.
             "maxLines": 2, 
             // "caseInsensitive" (optional) is a boolean value that sets whether the regular expression uses the case insensitive flag "i". Default is false. 
             "caseInsensitive": true
@@ -130,7 +130,7 @@ If a language is not recognized, then lines starting with `//` or `#` are treate
 
 ## More examples
 
-The following is a more complex example that uses the **reorder** feature combined with the **replace** function to organize imports at the top of a Nim file.
+The following is a more complex example that uses the **replace** function to organize imports at the top of a Nim file.
 
 ```jsonc
 // .vscode/settings.json
@@ -141,43 +141,6 @@ The following is a more complex example that uses the **reorder** feature combin
         "language": "nim",
         "rules": [
             {
-                // 1
-                "fixType": "reorder_desc",
-                "fix": "$1",
-                "message": "organization: unordered imports",
-                "name": "organization-import",
-                "pattern": "^import ([.\\w]+/).+"
-            },
-            {
-                // 2
-                "fixType": "reorder_asc",
-                "message": "organization: unordered import group",
-                "name": "organization-import",
-                "pattern": "^import \\./.+"
-            },
-            {
-                // 2.1
-                "fixType": "reorder_asc",
-                "message": "organization: unordered import group",
-                "name": "organization-import",
-                "pattern": "^import \\.\\./.+"
-            },
-            {
-                // 2.2
-                "fixType": "reorder_asc",
-                "message": "organization: unordered import group",
-                "name": "organization-import",
-                "pattern": "^import src/.+"
-            },
-            {
-                // 2.3
-                "fixType": "reorder_asc",
-                "message": "organization: unordered import group",
-                "name": "organization-import",
-                "pattern": "^import std/.+"
-            },
-            {
-                // 3
                 "fix": "$1\r\n$4",
                 "message": "organization: bad spacing in import group",
                 "maxLines": 0,
@@ -185,7 +148,6 @@ The following is a more complex example that uses the **reorder** feature combin
                 "pattern": "(^import ([.\\w]+)/.+)(\\r\\n){2,}(^import \\2/.+)"
             },
             {
-                // 4
                 "fix": "$1\r\n\r\n$4",
                 "message": "organization: bad spacing in import group",
                 "maxLines": 0,
@@ -199,14 +161,13 @@ The following is a more complex example that uses the **reorder** feature combin
 }
 ```
 
-![Demo2](assets/relint-demo2.gif?raw=true)
+<!-- ![Demo2](assets/relint-demo2.gif?raw=true) -->
 
 This configuration performs the following fixes:
 
-1. Order imports by root folder in descending alphabetical order,
-1. order each *import group* in ascending alphabetical order,
-1. ensures import groups are separated by 1 newline,
-1. and finally, ensures imports within each import group do not have newlines between them.
+<!-- 1. Order imports by root folder in descending alphabetical order, -->
+<!-- 1. order each *import group* in ascending alphabetical order, -->
+1. Ensures import groups are separated by 1 newline and ensures imports within each import group do not have newlines between them.
 
 The `name` configuration plays an important part here in that all rules with the same name are considered part of a *rule group*. Rules in such groups that produce diagnostics in overlapping ranges of text behave as one rule that can match multiple rule violations and apply the corresponding fixes to text in their combined ranges.
 

@@ -9,6 +9,9 @@
         "type": "git",
         "url": "https://github.com/pwintz/dryer-lint.git"
     },
+    "bugs": {
+        "url": "https://github.com/pwintz/dryer-lint/issues"
+    },
     "license": "MIT",
     "keywords": [
         "productivity",
