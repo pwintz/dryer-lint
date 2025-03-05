@@ -1,8 +1,11 @@
-# Dryer Lint (Do RegEx Yourself Linter): Regular Expression Linting VS Code Extension
+# **Dryer Lint**: A Do-Regex-Yourself (DRY) Linter Extension for VS Code
 
-Dryer Lint is a language- and framework-agnostic linter for VS Code. Its main purpose is to serve as tooling for programming languages that do not yet have their own specialized linters.
-"DRY" stands for "Do RegEx Yourself".
+![Dryer Lint Logo](assets/dryer_lint_logo.png)
+
+Dryer Lint is a language- and framework-agnostic linter for VS Code. 
+Its main purpose is to serve as tooling for programming languages that do not yet have their own specialized linters.
  
+Dryer Lint is based on the [`relint`](https://github.com/n0bra1n3r/relint) extension by Ryan Blonna (GitHub user [n0bra1n3r](https://github.com/n0bra1n3r)).
 
 ## Short Demo
 
@@ -69,17 +72,17 @@ To create a Dryer Lint linting rules, modify `.vscode/settings.json` within your
             "fix": "banana",
             // "severity" (optional) is a string that must contain one of these values: "Hint", "Information", "Warning", or "Error". The default is "Warning".
             "severity": "'Hint', 'Information', 'Warning', or 'Error'",
-            // "maxLines" (optional) is a positive integer that sets the max number of lines that the pattern is checked against at one time. Default is 1. 
+            // "maxLines" (optional) is a positive integer that sets the max number of lines that the pattern is checked against at one time. The default is 1 for `replace` fixes, and 0 for `reorder` fixes.
             "maxLines": 2, 
-            // "caseInsensitive" (optional) is a boolean value that sets whether the regular experssion uses the case insensitive flag "i". Default is false. 
+            // "caseInsensitive" (optional) is a boolean value that sets whether the regular expression uses the case insensitive flag "i". Default is false. 
             "caseInsensitive": true
         },
     ]
 },
 ```
 
-The "fix" and "message" fields can use replacements from the matched RegEx groups.
-In particular, if "$1" in "fix" or "messages", then it is replaced with the contents of the first group capture, and "$2" is replaced with the second, and so on.
+The `"fix"` and `"message"` fields can use replacements from the matched Regex groups.
+In particular, if `"$1"` in `"fix"` or `"messages"`, then it is replaced with the contents of the first group capture, and `"$2"` is replaced with the second, and so on.
 The following is an example of a rule for LaTeX, where the first group `(cref|eqref|ref|cite)` is substituted into the error message.
 ```jsonc
 {
@@ -95,21 +98,34 @@ You can disable Dryer Lint for portions of a file using an inline comment such a
 ```c++
 // dryer-lint: disable
 ```
-The 
-The following are comments also disable Dryer Lint:
+The following comments also disable Dryer Lint:
 ```c++
 // dryer-lint: disabled
 // dryer-lint: enable=false
 // dryer-lint: enabled=false
 ```
-To renable Dryer Lint, use any of the following:
+To re-enable Dryer Lint, use any of the following:
 ```c++
 // dryer-lint: enable
 // dryer-lint: enabled
 // dryer-lint: enable=true
 // dryer-lint: enabled=true
 ```
-The inline comment must be the first content in the line of code except for empty space. 
+The inline comment must be the only contents of the line except for empty space.
+
+The inline comment characters for the following languages are recognized: 
+```
+    c: "//",
+    cpp: "//",
+    java: "//",
+    javascript: "//",
+    latex: '%',
+    python: "#",
+    ruby: "#",
+    shellscript: "#",
+    typescript: "//",
+```
+If a language is not recognized, then lines starting with `//` or `#` are treated as comments for the purpose of toggling Dryer Lint on and off.
 
 
 ## More examples
@@ -223,7 +239,7 @@ The following is a simple configuration that issues diagnostics for maximum char
 
 This section describes how to set up relint for development.
 
-Install Node.js and npm/
+Install Node.js and the Node Package Manager:
 
 1. Download and install Node.js (LTS version recommended).
 1. The Node Package Manager (`npm`) comes bundled with Node.js.
@@ -245,9 +261,9 @@ To run this extension in a workspace—without building and installing a VS Code
 0. Open the workspace where you want to test Dryer Lint.
 1. Create `.vscode/extension` as a directory relative to the root of your workspace (if it does not already exist).
 2. Clone Dryer Lint into `.vscode/extension`. The resulting path should be `.vscode/extension/dryer-lint`. 
-3. Change your working directory to `.vscode/extension/dryer-lint` and run `npm install` (as described in the previous section) to install all of Dryer Lint's depedencies. 
+3. Change your working directory to `.vscode/extension/dryer-lint` and run `npm install` (as described in the previous section) to install all of Dryer Lint's dependencies. 
 4. Run `npm run compile` to compile the project.
-5. Open the Extensions panel and select "Dryer Lint" from the "Recommended" subpanel. Click "Install Workspace Extension."
+5. Open the Extensions panel and select “Dryer Lint” from the “Recommended” subpanel. Click “Install Workspace Extension.”
 6. Run `Developer: Restart Extension Host` in the VS Code Command window (`CTRL+SHIFT+P`, by default on Windows).
 
 To update the extension after changing the code, repeat steps 4 and 6 (`npm run compile` and run `Developer: Restart Extension Host`).

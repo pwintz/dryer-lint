@@ -1,10 +1,10 @@
 {
     "name": "dryer-lint",
-    "displayName": "DRYer Lint",
+    "displayName": "Dryer Lint",
     "publisher": "pwintz",
     "description": "Regex-based linting for any language. Based on relint by n0brain3r.",
-    "icon": "assets/icon.png",
-    "version": "0.7.0",
+    "icon": "assets/dryer_lint_icon.png",
+    "version": "1.0.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/pwintz/dryer-lint.git"

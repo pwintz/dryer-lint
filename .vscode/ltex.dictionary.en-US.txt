@@ -1,0 +1,5 @@
+Relint
+relint
+caseInsensitive
+Nim
+Blonna
