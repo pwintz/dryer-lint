@@ -1,10 +1,10 @@
 {
     "name": "dryer-lint",
     "displayName": "DRYer Lint",
-    "publisher": "Paul Wintz",
+    "publisher": "pwintz",
     "description": "Regex-based linting for any language. Based on relint by n0brain3r.",
     "icon": "assets/icon.png",
-    "version": "0.6.2",
+    "version": "0.7.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/pwintz/dryer-lint.git"
@@ -21,10 +21,11 @@
         "Linters"
     ],
     "engines": {
-        "vscode": "^1.50.0"
+        "vscode": "^1.97.0"
     },
     "activationEvents": [
-        "*"
+        "onLanguage", 
+        "onEditSession:file"
     ],
     "contributes": {
         "configuration": {
