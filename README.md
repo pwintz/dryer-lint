@@ -267,3 +267,15 @@ To run this extension in a workspace—without building and installing a VS Code
 6. Run `Developer: Restart Extension Host` in the VS Code Command window (`CTRL+SHIFT+P`, by default on Windows).
 
 To update the extension after changing the code, repeat steps 4 and 6 (`npm run compile` and run `Developer: Restart Extension Host`).
+
+# Packaging the Extension
+
+To install `vsce`, run 
+```
+npm install -g @vscode/vsce
+```
+Then, within the root of this project, run 
+```
+vsce package
+vsce publish
+```
