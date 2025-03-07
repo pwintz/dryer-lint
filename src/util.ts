@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+
 export function sortedIndex<T>(sortedArray: T[], item: T, comparator: (a: T, b: T) => boolean) {
     let lo = 0;
     let hi = sortedArray.length;
@@ -11,4 +13,20 @@ export function sortedIndex<T>(sortedArray: T[], item: T, comparator: (a: T, b: 
         }
     }
     return lo;
+}
+
+const commentChars: Record<string, string | undefined> = {
+    c: "//",
+    cpp: "//",
+    java: "//",
+    javascript: "//",
+    latex: '%',
+    python: "#",
+    ruby: "#",
+    shellscript: "#",
+    typescript: "//",
+};
+
+export function getLineCommentChar(document: vscode.TextDocument): string | undefined {
+    return commentChars[document.languageId];
 }

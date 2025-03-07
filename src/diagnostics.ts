@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import Rule from './rule';
 import { sortedIndex } from './util';
+import * as util from './util';
+import { dryerLintLog } from './extension'
 
-export const DiagnosticCollectionName = 'relint';
+export const DiagnosticCollectionName = 'Dryer Lint';
 
 export class Diagnostic extends vscode.Diagnostic
 {
@@ -17,16 +19,20 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
     const diagnostics = vscode.languages.createDiagnosticCollection(DiagnosticCollectionName);
     context.subscriptions.push(diagnostics);
 
+    // If there is an active text editor, then immediately refresh the diagnostics to include the dryerLint diagnositics.
+    // TODO: This should occur after subscribing onDidChangeActiveTextEditor, in case an editor becomes active between these actions.
     if (vscode.window.activeTextEditor) {
         refreshDiagnostics(vscode.window.activeTextEditor.document, diagnostics);
     }
 
+    // Update the diagnostics whenever the a document becomes active.
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor) { refreshDiagnostics(editor.document, diagnostics); }
         })
     );
 
+    // Update the diagnostics whenever the text of a document changes.
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event =>
             refreshDiagnostics(event.document, diagnostics))
@@ -34,41 +40,88 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
 }
 
 function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
+    // If the current document is not in the workspace, then don't update diagnostics.
+    // ?? Are we not able apply linting to non-workspace documents? 
     if (!vscode.workspace.getWorkspaceFolder(document.uri)) return;
 
     const rules = Rule.all[document.languageId];
+    if (rules) {
+        dryerLintLog(`Refreshing Dryer Lint diagnostics for ${rules.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
+    } else {
+        dryerLintLog(`No Dryer Lint rules found for ${document.fileName}, which has language=${document.languageId}.`)
+    }
+
+    // Track whether dryerLint is enabled or disabled via comments.
+    var dryerLintEnabled = true;
+
+    var commentChar = util.getLineCommentChar(document);
+    if (!commentChar) {
+        commentChar = "(?://|#)"
+    }
+    const escapedCommentChar = commentChar.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const dryerLintCommentConfigRegex = new RegExp('^[ \\t]*'+ escapedCommentChar + '[ \t]*dryer-lint:[ \\t]*(?<config>.*?)[ \\t]*$', 'mi');
+    dryerLintLog("RegEx for finding Dryer Lint config comments: " + dryerLintCommentConfigRegex.source)
 
     const diagnosticList: Diagnostic[] = [];
 
-    if (rules?.length) {
+    if (rules?.length) {// If there are any rules in the current language...
         const numLines = document.lineCount;
 
-        for (const rule of rules) {
+        for (const rule of rules) { // Iterate over all of the rules
             const maxLines = rule.maxLines || numLines;
+            dryerLintLog(`Checking rule "${rule.name}."`)
 
-            let line = 0;
-            while (line < numLines) {
+            for(var line=0; line < numLines; line++) {
                 const endLine = Math.min(line + maxLines, numLines)
-                let textRange = document
-                    .lineAt(line)
-                    .range
-                    .union(document
-                        .lineAt(endLine - 1)
-                        .rangeIncludingLineBreak);
+                let textRange = document.lineAt(line)
+                                        .range
+                                        .union(document
+                                                .lineAt(endLine - 1) 
+                                                .rangeIncludingLineBreak
+                                        );
 
                 const text = document.getText(textRange);
-                let array: RegExpExecArray | null;
 
+                // Check if the text is enabling or disabling dryerLint.
+                // TODO: Move the code for enabling or disabling dryerLint via comments into a dedicated function. 
+                // TODO: It would also be a good idea to sweep through the file once and find all of the config comments, and store the results, instead of checking repeatedly.
+                var commentConfigMatch = text.match(dryerLintCommentConfigRegex);
+                if (commentConfigMatch?.groups) {
+                    // If the config text is "disable", "disabled", or "enabled=false" (with optional spaces around the equal sign), then disable dryerLint.
+                    if (commentConfigMatch.groups.config.match(/(?:disabled?|enabled[ \t]*=[ \t]*false)/)){
+                        dryerLintEnabled = false;
+                        dryerLintLog(`Disabled Dryer Lint checking starting at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
+                    } else if (commentConfigMatch.groups.config.match(/enabled?(?:[ \t]*:=[ \t]*true)?/)) {
+                        // If the config text is "enable", "enabled", or "enabled=true" (with optional spaces around the equal sign), then reenable dryerLint.
+                        dryerLintEnabled = true;
+                        dryerLintLog(`Enabled Dryer Lint checking starting at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
+                    }
+                }
+                if (!dryerLintEnabled) {
+                    continue; // Go to the next line.
+                }
+
+                let array: RegExpExecArray | null;
                 if (rule.fixType === 'replace') {
                     while (array = rule.regex.exec(text)) {
+                        // Construct diagnostic message.
+                        var message = rule.message
+                        for (var i = 1; i < array.length; i++) {
+                            if (array){
+                                // Replace "$1" in the message with the first capture group, "$2" with the second and so on.
+                                message = message.replace(/\$(\d+)/g, (_, num) => array?.[Number(num)] || `<regex capture group ${num} not found>`);
+                            }
+                        }
+
                         const range = rangeFromMatch(document, textRange, array);
                         const entry = mergeDiagnostic(diagnosticList, document, range, rule)
-                            ?? createDiagnostic(diagnostics.name, range, rule);
+                            ?? createDiagnostic(diagnostics.name, range, rule, message);
                         if (!diagnosticList.includes(entry)) {
                             diagnosticList.push(entry);
                         }
+                        dryerLintLog(`The rule "${rule.name}" with message "${message}" matched "${array}".`);
                     }
-                } else {
+                } else { // Otherwise, fix type is 'reorder_asc' or 'reorder_desc'
                     const sorter: string[] = [];
 
                     let entry: Diagnostic | undefined;
@@ -78,7 +131,7 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
                         const range = rangeFromMatch(document, textRange, array);
                         if (!entry) {
                             entry = mergeDiagnostic(diagnosticList, document, range, rule)
-                                ?? createDiagnostic(diagnostics.name, range, rule);
+                                ?? createDiagnostic(diagnostics.name, range, rule, rule.message);
                         } else {
                             addRelatedInfo(entry, document, range);
                         }
@@ -104,9 +157,9 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
                 }
 
                 if (textRange.end.line >= numLines - 1) { break; }
-                line += 1;
             }
         }
+        dryerLintLog(`Finished refreshing Dryer Lint diagnostics for ${rules?.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
     }
 
     diagnostics.set(document.uri, diagnosticList);
@@ -119,7 +172,8 @@ function mergeDiagnostic(
             rule: Rule): Diagnostic | undefined {
     let diagnostic = diagnosticList.find(diagnostic =>
         diagnostic.code === rule.name &&
-        diagnostic.effectiveRange.intersection(range));
+        diagnostic.effectiveRange.intersection(range)
+    );
     if (diagnostic) {
         if (diagnostic.range.intersection(range)) {
             diagnostic.range = diagnostic.range.union(range);
@@ -145,8 +199,9 @@ function addRelatedInfo(diagnostic: Diagnostic, document: vscode.TextDocument, r
     }
 }
 
-function createDiagnostic(source: string, range: vscode.Range, rule: Rule): Diagnostic {
-    const diagnostic = new Diagnostic(range, rule.message, rule.severityCode);
+function createDiagnostic(source: string, range: vscode.Range, rule: Rule, message: string): Diagnostic {
+    
+    const diagnostic = new Diagnostic(range, message, rule.severityCode);
     diagnostic.source = source;
     diagnostic.code = rule.name;
     return diagnostic;
