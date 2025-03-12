@@ -2,13 +2,15 @@ import * as vscode from 'vscode';
 import { Diagnostic, DiagnosticCollectionName } from './diagnostics';
 import Rule, { ConfigSectionName, FixType } from './rule';
 import { sortedIndex } from './util';
+import { dryerLintLog } from './extension'
 
 type Fix = {
     group: string,
     language: string,
     regex: RegExp,
-    ruleId: string,
-    string: string,
+    // TODO: Create a UUID instead of using the pattern. The current code might break if patterns are not unique!
+    ruleId: string, // The "pattern" string provided by the user. 
+    string: string, // The "fix" string provided by the user
     type: FixType
 };
 
@@ -51,13 +53,14 @@ export default function activateFixes(context: vscode.ExtensionContext) {
 function getFixes(): Fix[] {
     return Object.values(Rule.all)
         .flat()
+        // filter any rules that do not define fixes.
         .filter(rule => rule?.fix !== undefined)
         .map(rule => ({
             group: rule!.name,
             language: rule!.language,
             regex: new RegExp(rule!.regex),
-            ruleId: rule!.id,
-            string: rule!.fix!,
+            ruleId: rule!.id,  // Contains the regex pattern.
+            string: rule!.fix!,// The "fix" string provided by the user
             type: rule!.fixType
         }));
 }
@@ -74,7 +77,7 @@ function registerFixes(context: vscode.ExtensionContext, fixes: Fix[]) {
                 vscode.languages.registerCodeActionsProvider(fix.language, new FixAllProvider(fixes), {
                     providedCodeActionKinds: [
                         vscode.CodeActionKind.SourceFixAll,
-                        vscode.CodeActionKind.QuickFix
+                        vscode.CodeActionKind.QuickFix // <- This seems out of place, but let's test.
                     ]
                 })
             ];
@@ -156,6 +159,7 @@ function applyFixes(
 
     for (const diagnostic of diagnostics) {
         const fullRange = diagnostic.effectiveRange;
+        // Not sure what the following code does...
         const editRange = diagnostics.reduce((range, fixable) => {
             const fixRange = fixable.effectiveRange;
             if (fixRange.intersection(range))
@@ -165,6 +169,7 @@ function applyFixes(
         const rangeText = document.getText(editRange);
         const fixGroup = fixes.filter(fix => fix.group === diagnostic.code);
 
+        // Store the correct text as "fixedText" while iteratively applying fix.  
         let fixedText: string | undefined;
         for (let fixIter = 0; fixIter < MaxFixIters; fixIter += 1) {
             let groupFixedText: string | undefined;

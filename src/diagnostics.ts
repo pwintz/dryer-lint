@@ -53,6 +53,8 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
     // ?? Are we not able apply linting to non-workspace documents? 
     if (!vscode.workspace.getWorkspaceFolder(document.uri)) return;
 
+    const start_time = Date.now();
+
     const rules = Rule.all[document.languageId];
     if (rules) {
         dryerLintLog(`Refreshing Dryer Lint diagnostics for ${rules.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
@@ -79,6 +81,7 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
         for (const rule of rules) { // Iterate over all of the rules
             const maxLines = rule.maxLines || numLines;
             dryerLintLog(`Checking rule "${rule.name}."`)
+            const rule_start_time = Date.now();
 
             for(var line=0; line < numLines; line++) {
                 const endLine = Math.min(line + maxLines, numLines)
@@ -169,11 +172,16 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
 
                 if (textRange.end.line >= numLines - 1) { break; }
             }
-        }
-        dryerLintLog(`Finished refreshing Dryer Lint diagnostics for ${rules?.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
+            
+            dryerLintLog(`Checking ${rule.name} took ${Date.now() - rule_start_time} ms`)
+        }// End of for-loop over "rules"
+        const run_time = Date.now() - start_time;
+        dryerLintLog(`Finished refreshing Dryer Lint diagnostics in ${run_time} ms for ${rules?.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
+        vscode.window.setStatusBarMessage(`Dryer Lint refresh: ${run_time} ms`, 2*1000);
     }
 
     diagnostics.set(document.uri, diagnosticList);
+    
 }
 
 function mergeDiagnostic(

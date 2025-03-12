@@ -42,7 +42,7 @@ export default class Rule
     private static rules: Partial<Record<string, Rule[]>> = {};
 
     private constructor(
-            readonly id: string,
+            readonly id: string, // Contains the regex pattern.
             readonly fixType: FixType,
             readonly language: string,
             readonly maxLines: number,
