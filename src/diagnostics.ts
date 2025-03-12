@@ -4,14 +4,23 @@ import { sortedIndex } from './util';
 import * as util from './util';
 import { dryerLintLog } from './extension'
 
+// The value of DiagnosticCollectionName is used as the "source" property on Diagnostic objects.
 export const DiagnosticCollectionName = 'Dryer Lint';
 
 export class Diagnostic extends vscode.Diagnostic
 {
+    /**
+	 * Get the union of the diagnostic's range and any other ranges that are listed in the relatedInformation property
+	 */
     public get effectiveRange(): vscode.Range {
-        return this.relatedInformation?.reduce((range, info) =>
-            range.union(info.location.range), this.range)
-            ?? this.range;
+        if (!this.relatedInformation) {
+            return this.range;
+        }
+        // If there is relatedInformation given for the diagnostic, then append
+        return this.relatedInformation.reduce(
+            (range, info) => range.union(info.location.range), 
+            this.range
+        )
     }
 }
 
@@ -88,13 +97,15 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
                 var commentConfigMatch = text.match(dryerLintCommentConfigRegex);
                 if (commentConfigMatch?.groups) {
                     // If the config text is "disable", "disabled", or "enabled=false" (with optional spaces around the equal sign), then disable dryerLint.
-                    if (commentConfigMatch.groups.config.match(/(?:disabled?|enabled[ \t]*=[ \t]*false)/)){
+                    if (commentConfigMatch.groups.config.match(/(?:disable[d]?|enable[d]?[ \t]*=[ \t]*false)/)){
                         dryerLintEnabled = false;
-                        dryerLintLog(`Disabled Dryer Lint checking starting at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
-                    } else if (commentConfigMatch.groups.config.match(/enabled?(?:[ \t]*:=[ \t]*true)?/)) {
+                        dryerLintLog(`Disabled Dryer Lint in \"${document.fileName}\" at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
+                    } else if (commentConfigMatch.groups.config.match(/enable[d]?(?:[ \t]*=[ \t]*true)?/)) {
                         // If the config text is "enable", "enabled", or "enabled=true" (with optional spaces around the equal sign), then reenable dryerLint.
                         dryerLintEnabled = true;
-                        dryerLintLog(`Enabled Dryer Lint checking starting at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
+                        dryerLintLog(`Enabled Dryer Lint checking starting in \"${document.fileName}\" at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
+                    } else {
+                        vscode.window.showErrorMessage(`Dryer Lint: Invalid Config Comment in \"${document.fileName}\" at line=${line}: "${commentConfigMatch.groups.config}"`)
                     }
                 }
                 if (!dryerLintEnabled) {
