@@ -4,7 +4,7 @@
     "publisher": "pwintz",
     "description": "Regex-based linting for any language. Based on relint by n0brain3r.",
     "icon": "assets/dryer_lint_icon.png",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "repository": {
         "type": "git",
         "url": "https://github.com/pwintz/dryer-lint.git"
@@ -27,7 +27,7 @@
         "vscode": "^1.97.0"
     },
     "activationEvents": [
-        "onLanguage", 
+        "onLanguage",
         "onEditSession:file"
     ],
     "contributes": {
@@ -114,7 +114,7 @@
                                         ],
                                         "default": "replace",
                                         "description": "The type of fix to apply. `reorder_*` fixes can be controlled using substitution tokens in `quickFix`."
-                                    }, 
+                                    },
                                     "caseInsensitive": {
                                         "type": "boolean",
                                         "default": false,
