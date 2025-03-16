@@ -285,8 +285,11 @@ To install `vsce`, run
 ```
 npm install -g @vscode/vsce
 ```
-Then, within the root of this project, run 
+Then, within the root of this project, create a package with 
 ```
 vsce package
-vsce publish
+```
+and publish a new `major`, `minor`, or `patch` version with
+```
+vsce publish [major/minor/path]
 ```
