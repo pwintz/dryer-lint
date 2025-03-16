@@ -20,7 +20,7 @@ const commentChars: Record<string, string | undefined> = {
     cpp: "//",
     java: "//",
     javascript: "//",
-    latex: '%',
+    latex: "%",
     python: "#",
     ruby: "#",
     shellscript: "#",
