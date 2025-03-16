@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Diagnostic, DiagnosticCollectionName } from './diagnostics';
+import { DiagnosticCollectionName, RegexMatchDiagnostic } from './diagnostics';
 import Rule, { ConfigSectionName, FixType } from './rule';
 import { sortedIndex } from './util';
 import { dryerLintLog } from './extension'
@@ -111,17 +111,68 @@ class QuickFixProvider implements vscode.CodeActionProvider
     public constructor(readonly fixes: Fix[]) { }
 
     provideCodeActions(
-            document: vscode.TextDocument,
-            range: vscode.Range,
-            context: vscode.CodeActionContext): vscode.CodeAction[] {
-        const edits = applyFixes(document, <Diagnostic[]>context.diagnostics, this.fixes);
-        if (edits.length === 0) { return []; }
+        document: vscode.TextDocument,
+        selection_range: vscode.Range,
+        context: vscode.CodeActionContext
+    ): vscode.CodeAction[] {
+        const start_time = Date.now();
+            
+        var diagnostics = <RegexMatchDiagnostic[]> context.diagnostics;
+        var diagnosticsInSelection: RegexMatchDiagnostic[] = diagnostics.filter(
+            (diagnostic) => {
+                return diagnostic.range.intersection(selection_range);
+            }
+        ).filter(
+            (diagnostic) => {
+                return diagnostic.source == DiagnosticCollectionName  
+                       && diagnostic instanceof RegexMatchDiagnostic
+            }
+        )
 
-        const action = new vscode.CodeAction('Fix this issue', vscode.CodeActionKind.QuickFix);
-        action.edit = new vscode.WorkspaceEdit();
-        action.edit.set(document.uri, edits);
-        action.isPreferred = true;
-        return [action];
+        // const fixes_in_selection = this.fixes.filter(fix => fix.group === diagnostic.code);
+        diagnosticsInSelection.forEach(
+            (diagnostic) => {
+                dryerLintLog(`A diagnostic is active at the selected text: ${diagnostic}`)
+            }
+        )
+
+        var fixableDiagnosticsInSelect = diagnosticsInSelection.filter(
+            // If the diagnostic does not have a fix defined, then continue to the next diagnostic. 
+            (diagnostic) => diagnostic.hasFix
+        )
+
+        dryerLintLog(`There are ${diagnosticsInSelection.length} diagnostics in the selection with ${fixableDiagnosticsInSelect.length} fixable.}`)
+        if (!fixableDiagnosticsInSelect) {
+            // No relevant diagnostics found.
+            dryerLintLog('No fixable diagnostics found in selection.')
+            return []
+        }
+
+        // For each diagnostic in the selection that has a fix, create a quick action.
+        var actions = fixableDiagnosticsInSelect.flatMap(
+            (diagnostic: RegexMatchDiagnostic) => {
+                // selection_range.
+                const edits = generateTextEditFixes(document, [diagnostic], this.fixes);
+                if (edits.length === 0) { 
+                    dryerLintLog(`No edits for ${diagnostic.message}.`)
+                    return []; 
+                }
+
+                // Create human-readable label that is shown in quick-fix menu.
+                var actionLabel: string = `Fix: "${diagnostic.message}" (Dryer Lint)`;
+                const action = new vscode.CodeAction(actionLabel, vscode.CodeActionKind.QuickFix);
+                action.edit = new vscode.WorkspaceEdit();
+                action.edit.set(document.uri, edits);
+                action.isPreferred = true;
+                dryerLintLog(`Created an action "${action.title}" for "${diagnostic.message}".`)
+                return action
+            }
+        )
+        const run_time = Date.now() - start_time;
+        if (actions) {
+            dryerLintLog(`Created list of ${actions.length} fix CodeAction in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n].`)
+        }
+        return actions;
     }
 }
 
@@ -131,83 +182,91 @@ class FixAllProvider implements vscode.CodeActionProvider
 
     provideCodeActions(
             document: vscode.TextDocument,
-            range: vscode.Range,
+            selection_range: vscode.Range,
             context: vscode.CodeActionContext): vscode.CodeAction[] {
-        const fixAllAction = new vscode.CodeAction('Apply all fixes', vscode.CodeActionKind.SourceFixAll);
-        fixAllAction.edit = new vscode.WorkspaceEdit();
-        const quickFixAction = new vscode.CodeAction('Apply all fixes', vscode.CodeActionKind.QuickFix);
-        quickFixAction.edit = new vscode.WorkspaceEdit();
+        var regexDiagnostics = <RegexMatchDiagnostic[]> context.diagnostics.filter(
+            (diagnostic) => {
+                return diagnostic.source == DiagnosticCollectionName  
+                        && diagnostic instanceof RegexMatchDiagnostic
+            }
+        );
+        var fixableRegexDiagnostics = regexDiagnostics.filter(
+            (diagnostic) => {
+                return diagnostic.rule.fix !== undefined;
+            }
+        );
+        var fixableDiagnosticsInSelection: RegexMatchDiagnostic[] = fixableRegexDiagnostics.filter(
+            (diagnostic) => {
+                return diagnostic.range.intersection(selection_range);
+            }
+        );
+        
+        // Create a list of all the rules that 1) are violated in the current selection and 2) have "fix"es defined.
+        var fixableRulesInSelection: Rule[] = fixableDiagnosticsInSelection.flatMap(
+            (diagnostic) => {
+                return diagnostic.rule
+            }
+        );
+        var uniqueFixableRulesInSelection = [...new Set(fixableRulesInSelection)]
 
-        const diagnostics = vscode.languages
-            .getDiagnostics(document.uri)
-            .filter(diagnostic => diagnostic.source === DiagnosticCollectionName);
+        // Create one "Fix All" action for each rule.
+        var listOfFixAllActions: vscode.CodeAction[] = []
+        uniqueFixableRulesInSelection.forEach(
+            (rule: Rule) => {
+                // const fixAllAction      = new vscode.CodeAction('Apply all Dryer Lint fixes (quick fix)', vscode.CodeActionKind.SourceFixAll);
+                // fixAllAction.edit = new vscode.WorkspaceEdit();
 
-        const edits = applyFixes(document, <Diagnostic[]>diagnostics, this.fixes);
-        if (edits.length === 0) { return []; }
+                // Create human-readable label that is shown in quick-fix menu.
+                const edits = generateTextEditFixes(document, fixableDiagnosticsInSelection.filter(diag => diag.rule === rule), this.fixes);
+                
+                if (edits.length > 1) {
+                    // If there two or more edits, then we create a "fix all" item. 
+                    // Otherwise, we are just cluttering the menu.
+                    var actionLabel: string =`Fix all (x${edits.length}): "${rule.name}" (Dryer Lint)`;
+                    const quickFixAllAction = new vscode.CodeAction(actionLabel, vscode.CodeActionKind.QuickFix);
+                    quickFixAllAction.edit = new vscode.WorkspaceEdit();
+                    quickFixAllAction.edit.set(document.uri, edits);
+                    listOfFixAllActions.push(quickFixAllAction)
+                    if (edits) {
+                        dryerLintLog(`Created list of ${edits.length} edits for "Fix All" action: [${edits.flatMap(edit => "\n\t" + edit.newText)}\n].`)
+                    }
+                }
+            }
+        )
 
-        fixAllAction.edit.set(document.uri, edits);
-        quickFixAction.edit.set(document.uri, edits);
-        return [fixAllAction, quickFixAction];
+        dryerLintLog(`Created ${listOfFixAllActions.length} "Fix All" actions.`)
+        return listOfFixAllActions
     }
 }
 
-function applyFixes(
+function generateTextEditFixes(
         document: vscode.TextDocument,
-        diagnostics: Diagnostic[],
+        diagnostics: RegexMatchDiagnostic[],
         fixes: Fix[]): vscode.TextEdit[] {
     const edits: vscode.TextEdit[] = [];
 
     for (const diagnostic of diagnostics) {
-        const fullRange = diagnostic.effectiveRange;
-        // Not sure what the following code does...
-        const editRange = diagnostics.reduce((range, fixable) => {
-            const fixRange = fixable.effectiveRange;
-            if (fixRange.intersection(range))
-                return fixRange.union(range);
-            return range;
-        }, fullRange);
-        const rangeText = document.getText(editRange);
-        const fixGroup = fixes.filter(fix => fix.group === diagnostic.code);
-
-        // Store the correct text as "fixedText" while iteratively applying fix.  
-        let fixedText: string | undefined;
-        for (let fixIter = 0; fixIter < MaxFixIters; fixIter += 1) {
-            let groupFixedText: string | undefined;
-            for (const fix of fixGroup) {
-                const textToBeFixed = groupFixedText ?? fixedText ?? rangeText;
-
-                let singleFixedText: string | undefined;
-                switch (fix.type) {
-                    case 'replace':
-                        singleFixedText = applyReplaceFix(textToBeFixed, fix);
-                        break;
-                    case 'reorder_asc':
-                    case 'reorder_desc':
-                        singleFixedText = applyReorderFix(textToBeFixed, fix);
-                        break;
-                }
-
-                if (singleFixedText !== undefined) {
-                    groupFixedText = singleFixedText;
-                }
-            }
-
-            if (groupFixedText === undefined) { break; }
-            fixedText = groupFixedText;
+        
+        if (diagnostic.rule.fix === undefined) {
+            dryerLintLog('diagnostic.rule.fix is not defined!')
+            continue;   
         }
+
+        let fixedText: string = diagnostic.rule.fix.replace(/\$(\d+)/g, (_, num) => diagnostic.regexMatch[Number(num)] || '' );
 
         if (fixedText !== undefined) {
-            edits.push(new vscode.TextEdit(editRange, fixedText));
+            edits.push(new vscode.TextEdit(diagnostic.range, fixedText));
+        } else {
+            dryerLintLog(`FixedText is undefined for "${diagnostic.message}"!`)
+
         }
     }
-
+    if (!edits) {
+        dryerLintLog(`No edits generated!`)
+    }
     return edits;
 }
 
-function applyReplaceFix(text: string, fix: Fix): string | undefined {
-    if (!fix.regex.test(text)) { return undefined; }
-    return text.replace(fix.regex, fix.string);
-}
 
 function applyReorderFix(text: string, fix: Fix): string | undefined {
     const sorter: [number, string][] = [];

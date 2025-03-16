@@ -7,8 +7,12 @@ import { dryerLintLog } from './extension'
 // The value of DiagnosticCollectionName is used as the "source" property on Diagnostic objects.
 export const DiagnosticCollectionName = 'Dryer Lint';
 
-export class Diagnostic extends vscode.Diagnostic
+export class RegexMatchDiagnostic extends vscode.Diagnostic
 {
+    rule: Rule;
+    regexMatch: RegExpMatchArray;
+    document: vscode.TextDocument;
+
     /**
 	 * Get the union of the diagnostic's range and any other ranges that are listed in the relatedInformation property
 	 */
@@ -22,6 +26,35 @@ export class Diagnostic extends vscode.Diagnostic
             this.range
         )
     }
+
+    constructor(rule: Rule, regexMatch: RegExpMatchArray, document: vscode.TextDocument, range: vscode.Range) {
+        var message = rule.message
+        dryerLintLog(`RegexMatch: ${regexMatch}, length: ${regexMatch.length}, entries: ${regexMatch.entries()}.`)
+        
+        // Replace "$1" in the message with the first capture group, "$2" with the second and so on.
+        message = message.replace(/\$(\d+)/g, (_, num) => regexMatch[Number(num)] || `<regex capture group ${num} not found>`);
+
+        // N.B. The range of text used to match a regex might be larger than the range provided in "ramge" because regex's can use lookaheads and lookbehinds that are not included in the match string.
+
+        super(range, message, rule.severityCode);
+        this.rule = rule;
+        this.regexMatch = regexMatch;
+        this.code = rule.name;
+        this.source = DiagnosticCollectionName;
+        this.document = document;
+    }
+
+    toString() {
+        // Create a string representation. 
+        // The start, end, and character properties of range use zero indexing, so we add one to get 1-based indexing. 
+        // This allows use to click on the location as printed in the terminal to open the diagnostic location in the code.
+        return `RegexMatchDiagnostic{"${this.code}", message: "${this.message}" at ${this.document.fileName}:${this.range.start.line+1}:${this.range.start.character+1} to ${this.range.end.line+1}:${this.range.end.character+1}. Has fix? ${this.hasFix}}`
+    }
+
+    public get hasFix() : boolean {
+        return this.rule.fix !== undefined
+    }
+    
 }
 
 export default function activateDiagnostics(context: vscode.ExtensionContext): void {
@@ -87,18 +120,20 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
     const dryerLintCommentConfigRegex = new RegExp('^[ \\t]*'+ escapedCommentChar + '[ \t]*dryer-lint:[ \\t]*(?<config>.*?)[ \\t]*$', 'mi');
     // dryerLintLog("RegEx for finding Dryer Lint config comments: " + dryerLintCommentConfigRegex.source)
 
-    const diagnosticList: Diagnostic[] = [];
+    // A list of all of diagnostics we create for the current document. 
+    // They are applied at the end of the function by calling diagnostics.set(document.uri, diagnosticList);
+    const diagnosticList: RegexMatchDiagnostic[] = [];
 
     if (rules?.length) {// If there are any rules in the current language...
         const numLines = document.lineCount;
 
         for (const rule of rules) { // Iterate over all of the rules
-            const maxLines = rule.maxLines || numLines;
             dryerLintLog(`Checking rule "${rule.name}."`)
             const rule_start_time = Date.now();
 
             for(var line=0; line < numLines; line++) {
-                const endLine = Math.min(line + maxLines, numLines)
+                // Construct a text range that includes the current line and the lines afteward up to a total of "maxLines" (or the end of the file).
+                const endLine = Math.min(line + rule.maxLines, numLines)
                 let textRange = document.lineAt(line)
                                         .range
                                         .union(document
@@ -126,69 +161,21 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
                     }
                 }
                 if (!dryerLintEnabled) {
-                    continue; // Go to the next line.
+                    continue; // Skip line.
                 }
 
                 let array: RegExpExecArray | null;
-                if (rule.fixType === 'replace') {
-                    while (array = rule.regex.exec(text)) {
-                        // Construct diagnostic message.
-                        var message = rule.message
-                        for (var i = 1; i < array.length; i++) {
-                            if (array){
-                                // Replace "$1" in the message with the first capture group, "$2" with the second and so on.
-                                message = message.replace(/\$(\d+)/g, (_, num) => array?.[Number(num)] || `<regex capture group ${num} not found>`);
-                            }
-                        }
-
-                        const range = rangeFromMatch(document, textRange, array);
-                        const entry = mergeDiagnostic(diagnosticList, document, range, rule)
-                            ?? createDiagnostic(diagnostics.name, range, rule, message);
-                        if (!diagnosticList.includes(entry)) {
-                            diagnosticList.push(entry);
-                        }
-                        dryerLintLog(`The rule "${rule.name}" with message "${message}" matched "${array}".`);
-                    }
-                } else { // Otherwise, fix type is 'reorder_asc' or 'reorder_desc'
-                    const sorter: string[] = [];
-
-                    let entry: Diagnostic | undefined;
-                    let isBad = false;
-                    let count = 0;
-                    while (array = rule.regex.exec(text)) {
-                        const range = rangeFromMatch(document, textRange, array);
-                        if (!entry) {
-                            entry = mergeDiagnostic(diagnosticList, document, range, rule)
-                                ?? createDiagnostic(diagnostics.name, range, rule, rule.message);
-                        } else {
-                            addRelatedInfo(entry, document, range);
-                        }
-
-                        if (!isBad) {
-                            const lastIndex = rule.regex.lastIndex;
-                            const match = array[0];
-                            const token = match.replace(rule.regex, rule.fix!);
-                            rule.regex.lastIndex = lastIndex;
-                            const index = rule.fixType === 'reorder_asc'
-                                ? sortedIndex(sorter, token, (a, b) => a <= b)
-                                : sortedIndex(sorter, token, (a, b) => a >= b);
-                            sorter.splice(index, 0, token);
-
-                            isBad = count !== index;
-                            count += 1;
-                        }
-                    }
-
-                    if (isBad && !diagnosticList.includes(entry!)) {
-                        diagnosticList.push(entry!);
-                    }
+                while (array = rule.regex.exec(text)) {// Search for matches until we find no more.
+                    const range = rangeFromMatch(document, textRange, array);
+                    const regexDiagnostic = new RegexMatchDiagnostic(rule, array, document, range);
+                    diagnosticList.push(regexDiagnostic);
                 }
-
-                if (textRange.end.line >= numLines - 1) { break; }
             }
             
-            dryerLintLog(`Checking ${rule.name} took ${Date.now() - rule_start_time} ms`)
+            dryerLintLog(`Checking rule took ${Date.now() - rule_start_time} ms: "${rule.name}"`)
         }// End of for-loop over "rules"
+
+        // Display the time required to check in the log and status bar. 
         const run_time = Date.now() - start_time;
         dryerLintLog(`Finished refreshing Dryer Lint diagnostics in ${run_time} ms for ${rules?.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
         vscode.window.setStatusBarMessage(`Dryer Lint refresh: ${run_time} ms`, 2*1000);
@@ -196,48 +183,6 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
 
     diagnostics.set(document.uri, diagnosticList);
     
-}
-
-function mergeDiagnostic(
-            diagnosticList: Diagnostic[],
-            document: vscode.TextDocument,
-            range: vscode.Range,
-            rule: Rule): Diagnostic | undefined {
-    let diagnostic = diagnosticList.find(diagnostic =>
-        diagnostic.code === rule.name &&
-        diagnostic.effectiveRange.intersection(range)
-    );
-    if (diagnostic) {
-        if (diagnostic.range.intersection(range)) {
-            diagnostic.range = diagnostic.range.union(range);
-        } else {
-            addRelatedInfo(diagnostic, document, range);
-        }
-    }
-    return diagnostic;
-}
-
-function addRelatedInfo(diagnostic: Diagnostic, document: vscode.TextDocument, range: vscode.Range) {
-    if (diagnostic.relatedInformation === undefined)
-        diagnostic.relatedInformation = [];
-    const info = diagnostic.relatedInformation.find(info =>
-        info.location.range.intersection(range));
-    if (info) {
-        info.location.range = info.location.range.union(range);
-    } else {
-        diagnostic.relatedInformation.push({
-            location: { uri: document.uri, range },
-            message: 'related match here'
-        });
-    }
-}
-
-function createDiagnostic(source: string, range: vscode.Range, rule: Rule, message: string): Diagnostic {
-    
-    const diagnostic = new Diagnostic(range, message, rule.severityCode);
-    diagnostic.source = source;
-    diagnostic.code = rule.name;
-    return diagnostic;
 }
 
 function rangeFromMatch(
