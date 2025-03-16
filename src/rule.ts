@@ -169,7 +169,10 @@ export default class Rule
                 (rules, {fix, fixType, language, maxLines, pattern, caseInsensitive, severity, ...info }) => {
                     var regex: RegExp;
                     try {
-                        var flags = caseInsensitive? `gmi` : `gm`
+                        // Set the RegEx flags.
+                        // * g: Find all of the matches.
+                        // * i: (Optional) Case insensitive.
+                        var flags = caseInsensitive? `gi` : `g`
                         regex = new RegExp(pattern, flags);
                     } catch (error) {
                         vscode.window.showErrorMessage(`Could not construct Regex. Error: "${error}".`)
