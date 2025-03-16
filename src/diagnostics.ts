@@ -28,24 +28,38 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
     const diagnostics = vscode.languages.createDiagnosticCollection(DiagnosticCollectionName);
     context.subscriptions.push(diagnostics);
 
-    // If there is an active text editor, then immediately refresh the diagnostics to include the dryerLint diagnositics.
-    // TODO: This should occur after subscribing onDidChangeActiveTextEditor, in case an editor becomes active between these actions.
-    if (vscode.window.activeTextEditor) {
-        refreshDiagnostics(vscode.window.activeTextEditor.document, diagnostics);
-    }
-
     // Update the diagnostics whenever the a document becomes active.
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
-            if (editor) { refreshDiagnostics(editor.document, diagnostics); }
+            // 'editor' is the currently active editor or undefined. The active editor is the one that currently has focus or, when none has focus, the one that has changed input most recently.
+            if (editor) { 
+                dryerLintLog(`Refresing diagnostics for "${editor.document.fileName}" because editor became active.`)
+                refreshDiagnostics(editor.document, diagnostics); 
+            }
         })
     );
 
     // Update the diagnostics whenever the text of a document changes.
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event =>
-            refreshDiagnostics(event.document, diagnostics))
+            {
+                if (event.document.fileName.startsWith('extension-output-')) {
+                    // Surprisingly, onDidChangeTextDocument is triggered with the extension output panel changes. 
+                    // This creates an infinite loop if we print anything to the consoue during refreshDiagnostics (spoiler: we do). 
+                    // This if/return block stops this from happening.
+                    return
+                }
+                dryerLintLog(`Refresing diagnostics for "${event.document.fileName}" because document changed.`)
+                return refreshDiagnostics(event.document, diagnostics);
+            })
     );
+
+    // If there is an active text editor, then immediately refresh the diagnostics to include the dryerLint diagnositics.
+    // This should occur after subscribing onDidChangeActiveTextEditor, in case an editor becomes active after subscribing, but before executing these lines of code.
+    if (vscode.window.activeTextEditor) {
+        dryerLintLog(`Refresing diagnostics for "${vscode.window.activeTextEditor.document.fileName}" during initial activation.`)
+        refreshDiagnostics(vscode.window.activeTextEditor.document, diagnostics);
+    }
 }
 
 function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
@@ -57,9 +71,9 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
 
     const rules = Rule.all[document.languageId];
     if (rules) {
-        dryerLintLog(`Refreshing Dryer Lint diagnostics for ${rules.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
+        dryerLintLog(`Refreshing diagnostics for ${rules.length} rules applied to ${document.lineCount} lines in\n\t"${document.fileName}".`)
     } else {
-        dryerLintLog(`No Dryer Lint rules found for ${document.fileName}, which has language=${document.languageId}.`)
+        dryerLintLog(`No Dryer Lint rules found for "${document.fileName}", which has language=${document.languageId}.`)
     }
 
     // Track whether dryerLint is enabled or disabled via comments.
@@ -71,7 +85,7 @@ function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.D
     }
     const escapedCommentChar = commentChar.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const dryerLintCommentConfigRegex = new RegExp('^[ \\t]*'+ escapedCommentChar + '[ \t]*dryer-lint:[ \\t]*(?<config>.*?)[ \\t]*$', 'mi');
-    dryerLintLog("RegEx for finding Dryer Lint config comments: " + dryerLintCommentConfigRegex.source)
+    // dryerLintLog("RegEx for finding Dryer Lint config comments: " + dryerLintCommentConfigRegex.source)
 
     const diagnosticList: Diagnostic[] = [];
 
