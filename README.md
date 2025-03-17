@@ -1,12 +1,12 @@
 # **Dryer Lint**: A Do-Regex-Yourself (DRY) Linter Extension for VS Code
 
-![Dryer Lint Logo](assets/dryer_lint_logo.png)
+![Dryer Lint Logo](https://github.com/pwintz/dryer-lint/blob/3439fc14c6f6bc0ad4c45be317344c5655aa5331/assets/dryer_lint_logo.png?raw=true)
 
 Dryer Lint is a language- and framework-agnostic linter for VS Code. 
 It is designed to
-* allow syntax checking for programming languages that do not yet have their own specialized linters
-* define user-specific lint rules for a given project or code style.
-* enable automated fixes to rule violations. 
+- allow syntax checking for programming languages that do not yet have their own specialized linters
+- define user-specific lint rules for a given project or code style.
+- Enable automated fixes to rule violations. 
  
 Dryer Lint is based on the [`relint`](https://github.com/n0bra1n3r/relint) extension by Ryan Blonna (GitHub user [n0bra1n3r](https://github.com/n0bra1n3r)).
 
@@ -50,7 +50,7 @@ Here is a short demo showing two Dryer Lint rules for checking [Nim](https://nim
 
 Dryer Lint produces configurable diagnostics for _rule violations_, each of which are described by a [regular expression](https://www.regular-expressions.info/). 
 Rules can also be assigned _fixes_ that define replacements for rule violations.
-The behavior similar to VS Code's built-in regex [find-and-replace functionality.](https://code.visualstudio.com/docs/editor/codebasics#_find-and-replace).
+The behavior similar to VS Code's built-in regex [find-and-replace functionality](https://code.visualstudio.com/docs/editor/codebasics#_find-and-replace).
 
 
 # Usage Guide
@@ -80,19 +80,19 @@ Dryer Lint rules are created by adding them to `.vscode/settings.json` within yo
     ]
 },
 ```
-The following animation shows errors diagnostics added by Dryer Lint, matching the above rule, and quick actions used to apply the replacement "fix".
+The following animation shows errors diagnostics added by Dryer Lint, matching the above rule, and quick actions used to apply the replacement “fix”.
 In the first step, an individual rule violation is selected and fixed. 
-In the second step, multiple rule violations are selected in the text and a "Fix all" option is used to fix all of them in a single step.
+In the second step, multiple rule violations are selected in the text and a “Fix all” option is used to fix all of them in a single step.
 
-![Dryer Lint Animation](assets/dryer-lint-animation.gif)
+![Dryer Lint Animation](https://github.com/pwintz/dryer-lint/blob/3439fc14c6f6bc0ad4c45be317344c5655aa5331/assets/dryer-lint-animation.gif?raw=true)
 
-In this animation, the highlighting and inline display of error messages is acheived with [Error Lens](https://marketplace.visualstudio.com/items?itemName=usernamehw.errorlens) extension.
+In this animation, the highlighting and inline display of error messages is achieved with [Error Lens](https://marketplace.visualstudio.com/items?itemName=usernamehw.errorlens) extension.
 We highly recommend the use of Error Lens with Dryer Lint.
 
 ## Guide to Writing Regex 
 
-To learn RegEx and test new rules, the website [https://regex101.com/](regex101.com) is invaluable.
-Saving the RegEx in regex101.com and placing a link to the saved ReGex makes it easier to test changes to the expression in the future. 
+To learn regex and test new rules, the website [https://regex101.com/](regex101.com) is invaluable.
+Saving the regex in regex101.com and placing a link to the saved regex makes it easier to test changes to the expression in the future. 
 ```jsonc
 {
     // Link: https://regex101.com/r/QsDziM/latest
@@ -104,16 +104,16 @@ Saving the RegEx in regex101.com and placing a link to the saved ReGex makes it 
     "fix": "\\ell"
 }
 ```
-(See the section "Escaping Regular Expressions", below, regarding copying expression from regex101.com into settings JSON file.)
+(See the section “Escaping Regular Expressions”, below, regarding copying expression from regex101.com into settings JSON file.)
 
 
-In Dryer Lint, all RegEx searches use the `g` flag (to find multiple matches instead of only the first).
+In Dryer Lint, all regex searches use the `g` flag (to find multiple matches instead of only the first).
 If `"caseInsensitive": true` for a given rule, then the `i` flag is also used.
 
 ### Matching Line Breaks
-By default, each RegEx rule is applied to a single line at a time, in which case `^` matches the start of a line and `$` matches the end.
-When `maxLines` is more than `1` (the default), however, each RegEx searches over the given number lines. 
-In this case, `^` matches the start of the entire string and `$`, the end (The `m` RegEx flag is not used). 
+By default, each regex rule is applied to a single line at a time, in which case `^` matches the start of a line and `$` matches the end.
+When `maxLines` is more than `1` (the default), however, each regex searches over the given number lines. 
+In this case, `^` matches the start of the entire string and `$`, the end (The `m` regex flag is not used). 
 To match a new line in the middle of the string, use `\r?\n` (which matches both the Windows line break `\r\n` and the Unix line break `\n`).
 
 ### Group Replacements in Fixes and Messages
@@ -134,12 +134,12 @@ The resulting error message from
 ```latex
 \cite{}
 ```
-is "Empty \cite{}."
+is “Empty \cite{}."
 
 ## Escaping Regular Expressions 
 In JSON, the backslash character `\` is used to escape other characters, so, for example, `\t` is a tab character, `\n` is a new line character, and (critically) `\\` is a backslash.
 Backslashes are used extensively in regular expressions. 
-To write RegEx in JSON, replace every occurance of `\` with `\\`.  
+To write regex in JSON, replace every occurrence of `\` with `\\`.  
 
 ## Disable/Enable via Inline Comment 
 
@@ -243,7 +243,7 @@ The following is a simple configuration that issues diagnostics for maximum char
 
 # Development
 
-This section describes how to set up relint for development.
+This section describes how to set up Dryer Lint for development.
 
 Install Node.js and the Node Package Manager:
 
@@ -261,7 +261,7 @@ npm run compile
 ```
 in the root of this repository.
 
-To see the console output of Dryer Lint, open the VS Code "Output" panel and select "Dryer Lint" from the dropdown.
+To see the console output of Dryer Lint, open the VS Code “Output” panel and select “Dryer Lint” from the dropdown.
 
 <!-- The configuration options can be found in the `contributes.configuration` section of the [`package.json`](package.json). -->
 
@@ -281,7 +281,7 @@ To update the extension after changing the code, repeat steps 4 and 6 (`npm run 
 ## Packaging the Extension
 
 Dryer Lint is packaged and published used the VS Code Extension Manager tool, `vsce`.
-To install `vsce`, run 
+To install `vsce`, run, 
 ```
 npm install -g @vscode/vsce
 ```
