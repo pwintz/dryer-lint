@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { DiagnosticCollectionName, RegexMatchDiagnostic } from './diagnostics';
-import Rule, { ConfigSectionName, FixType } from './rule';
-import { sortedIndex } from './util';
+import Rule, { ConfigSectionName, RuleSet, RuleSetsConfigName } from './rule';
 import { dryerLintLog } from './extension'
 
 type Fix = {
@@ -11,104 +10,78 @@ type Fix = {
     // TODO: Create a UUID instead of using the pattern. The current code might break if patterns are not unique!
     ruleId: string, // The "pattern" string provided by the user. 
     string: string, // The "fix" string provided by the user
-    type: FixType
 };
 
-const MaxFixIters = 64;
-
-const disposableCache: {
-    [language: string]: {
-        count: number,
-        disposables: vscode.Disposable[]
-    }
-} = {};
-
 export default function activateFixes(context: vscode.ExtensionContext) {
-    const fixes = getFixes();
-    registerFixes(context, fixes);
+    refreshFixes(context);
 
     vscode.workspace.onDidChangeConfiguration(event => {
         // When the user changes the list of rules, register all of the current fixes.
-        if (event.affectsConfiguration(ConfigSectionName)) {
-            const newFixes = getFixes();
-
-            for (const [i, fix] of fixes.entries()) {
-                const j = newFixes.findIndex(({ ruleId }) => ruleId === fix.ruleId);
-                if (j === -1) {// Not found
-                    deregisterFix(context, fix);
-                    fixes.splice(i, 1);
-                } else {
-                    Object.assign(fix, newFixes[j]);
-                    newFixes.splice(j, 1);
-                }
+        if (event.affectsConfiguration(RuleSetsConfigName) 
+            || event.affectsConfiguration(ConfigSectionName)) {
+                refreshFixes(context);
             }
-
-            fixes.push(...newFixes);
-
-            registerFixes(context, newFixes);
-        }
     });
 }
 
-function getFixes(): Fix[] {
-    return Object.values(Rule.all)
-        .flat()
-        // filter any rules that do not define fixes.
-        .filter(rule => rule?.fix !== undefined)
-        .map(rule => ({
-            group: rule!.name,
-            language: rule!.language,
-            regex: new RegExp(rule!.regex),
-            ruleId: rule!.id,  // Contains the regex pattern.
-            string: rule!.fix!,// The "fix" string provided by the user
-            type: rule!.fixType
-        }));
-}
-
-function registerFixes(context: vscode.ExtensionContext, fixes: Fix[]) {
-    for (const fix of fixes) {
-        if (disposableCache[fix.language]) {
-            disposableCache[fix.language].count += 1;
-        } else {
-            const disposables = [
-                vscode.languages.registerCodeActionsProvider(fix.language, new QuickFixProvider(fixes), {
-                    providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
-                }),
-                vscode.languages.registerCodeActionsProvider(fix.language, new FixAllProvider(fixes), {
-                    providedCodeActionKinds: [
-                        vscode.CodeActionKind.SourceFixAll,
-                        vscode.CodeActionKind.QuickFix // <- This seems out of place, but let's test.
-                    ]
-                })
-            ];
-
-            context.subscriptions.push(...disposables);
-
-            disposableCache[fix.language] = {
-                count: 1,
-                disposables
-            };
-        }
+const codeActionDisposables: vscode.Disposable[] = []
+export function refreshFixes(context: vscode.ExtensionContext){
+    
+    dryerLintLog(`Start of register fixes: context.subscriptions.length: ${context.subscriptions.length}`)
+    let codeActionDisposable;
+    while (codeActionDisposable = codeActionDisposables.pop()){
+        var index = context.subscriptions.indexOf(codeActionDisposable)
+        // var removedItem = 
+        context.subscriptions.splice(index)
+        // assert(codeActionDisposable === removedItem)
+        codeActionDisposable.dispose();
     }
-}
+    dryerLintLog(`After popping: context.subscriptions.length: ${context.subscriptions.length}`)
 
-function deregisterFix(context: vscode.ExtensionContext, fix: Fix) {
-    const disposeData = disposableCache[fix.language];
-    if ((disposeData.count -= 1) <= 0) {
-        disposeData.disposables.forEach(disposable => disposable.dispose());
-
-        for (const disposable of disposeData.disposables) {
-            const index = context.subscriptions.indexOf(disposable);
-            context.subscriptions.splice(index, 1);
+    const ruleSets: RuleSet[] = RuleSet.getAllRules();
+    const disposables = ruleSets.flatMap(
+        ruleSet => {
+            const singleFixProvider = new SingleFixProvider(ruleSet)
+            const fixAllProvider    = new FixAllProvider(ruleSet)
+            return [
+                vscode.languages.registerCodeActionsProvider(ruleSet.getDocumentSelector(), singleFixProvider, 
+                                                {
+                                                    providedCodeActionKinds: [
+                                                        vscode.CodeActionKind.QuickFix
+                                                    ]
+                                                }), 
+                vscode.languages.registerCodeActionsProvider(ruleSet.getDocumentSelector(), fixAllProvider, {
+                                                providedCodeActionKinds: [
+                                                    vscode.CodeActionKind.SourceFixAll,
+                                                    vscode.CodeActionKind.QuickFix // <- This seems out of place, but let's test.
+                                                ]
+                                            })
+           ]
         }
+    )
+    dryerLintLog(`Created ${disposables.length} code action providers.`)
 
-        delete disposableCache[fix.language];
-    }
+    // const disposables = [
+    //     vscode.languages.registerCodeActionsProvider(fix.language, new SingleFixProvider(fixes), {
+    //         providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
+    //     }),
+    //     vscode.languages.registerCodeActionsProvider(fix.language, new FixAllProvider(fixes), {
+    //         providedCodeActionKinds: [
+    //             vscode.CodeActionKind.SourceFixAll,
+    //             vscode.CodeActionKind.QuickFix // <- This seems out of place, but let's test.
+    //         ]
+    //     })
+    // ];
+    codeActionDisposables.push(...disposables)
+    dryerLintLog(`After pushing: context.subscriptions.length: ${context.subscriptions.length}`)
 }
 
-class QuickFixProvider implements vscode.CodeActionProvider
+class SingleFixProvider implements vscode.CodeActionProvider
 {
-    public constructor(readonly fixes: Fix[]) { }
+    private ruleSet;
+    public constructor(ruleSet: RuleSet) {
+        this.ruleSet = ruleSet;
+     }
 
     provideCodeActions(
         document: vscode.TextDocument,
@@ -116,43 +89,35 @@ class QuickFixProvider implements vscode.CodeActionProvider
         context: vscode.CodeActionContext
     ): vscode.CodeAction[] {
         const start_time = Date.now();
+
+        if (!this.ruleSet.doesMatchDocument(document)) {
+            return []
+        }
+
+        const allFixableMatchingRules: Rule[] = this.ruleSet.getFixableRules()
             
-        var diagnostics = <RegexMatchDiagnostic[]> context.diagnostics;
-        var diagnosticsInSelection: RegexMatchDiagnostic[] = diagnostics.filter(
-            (diagnostic) => {
-                return diagnostic.range.intersection(selection_range);
-            }
-        ).filter(
+        var fixableRegexDiagnostics = <RegexMatchDiagnostic[]> context.diagnostics.filter(
             (diagnostic) => {
                 return diagnostic.source == DiagnosticCollectionName  
-                       && diagnostic instanceof RegexMatchDiagnostic
+                        && diagnostic instanceof RegexMatchDiagnostic
+                        && allFixableMatchingRules.includes(diagnostic.rule) 
+                        && diagnostic.range.intersection(selection_range);
             }
-        )
-
-        // const fixes_in_selection = this.fixes.filter(fix => fix.group === diagnostic.code);
-        diagnosticsInSelection.forEach(
-            (diagnostic) => {
-                dryerLintLog(`A diagnostic is active at the selected text: ${diagnostic}`)
-            }
-        )
-
-        var fixableDiagnosticsInSelect = diagnosticsInSelection.filter(
-            // If the diagnostic does not have a fix defined, then continue to the next diagnostic. 
-            (diagnostic) => diagnostic.hasFix
-        )
-
-        dryerLintLog(`There are ${diagnosticsInSelection.length} diagnostics in the selection with ${fixableDiagnosticsInSelect.length} fixable.}`)
-        if (!fixableDiagnosticsInSelect) {
+        );
+            
+        if (fixableRegexDiagnostics) {
+            dryerLintLog(`There are ${fixableRegexDiagnostics.length} diagnostics in the selection.`)
+        } else {
             // No relevant diagnostics found.
             dryerLintLog('No fixable diagnostics found in selection.')
             return []
         }
 
         // For each diagnostic in the selection that has a fix, create a quick action.
-        var actions = fixableDiagnosticsInSelect.flatMap(
+        var actions = fixableRegexDiagnostics.flatMap(
             (diagnostic: RegexMatchDiagnostic) => {
                 // selection_range.
-                const edits = generateTextEditFixes(document, [diagnostic], this.fixes);
+                const edits = generateTextEditFixes([diagnostic]);
                 if (edits.length === 0) { 
                     dryerLintLog(`No edits for ${diagnostic.message}.`)
                     return []; 
@@ -178,135 +143,93 @@ class QuickFixProvider implements vscode.CodeActionProvider
 
 class FixAllProvider implements vscode.CodeActionProvider
 {
-    public constructor(readonly fixes: Fix[]) { }
+    private ruleSet;
+    public constructor(ruleSet: RuleSet) {
+        this.ruleSet = ruleSet;
+     }
 
     provideCodeActions(
-            document: vscode.TextDocument,
-            selection_range: vscode.Range,
-            context: vscode.CodeActionContext): vscode.CodeAction[] {
-        var regexDiagnostics = <RegexMatchDiagnostic[]> context.diagnostics.filter(
+        document: vscode.TextDocument,
+        selection_range: vscode.Range,
+        context: vscode.CodeActionContext
+    ): vscode.CodeAction[] {
+        const start_time = Date.now();
+
+        if (!this.ruleSet.doesMatchDocument(document)) {
+            return []
+        }
+        
+        const allFixableMatchingRules: Rule[] = this.ruleSet.getFixableRules()
+            
+        var fixableRegexDiagnostics = <RegexMatchDiagnostic[]> context.diagnostics.filter(
             (diagnostic) => {
                 return diagnostic.source == DiagnosticCollectionName  
                         && diagnostic instanceof RegexMatchDiagnostic
+                        && allFixableMatchingRules.includes(diagnostic.rule) 
+                        && diagnostic.range.intersection(selection_range);
             }
         );
-        var fixableRegexDiagnostics = regexDiagnostics.filter(
+            
+        // Print a message for debugging.
+        fixableRegexDiagnostics.forEach(
             (diagnostic) => {
-                return diagnostic.rule.fix !== undefined;
-            }
-        );
-        var fixableDiagnosticsInSelection: RegexMatchDiagnostic[] = fixableRegexDiagnostics.filter(
-            (diagnostic) => {
-                return diagnostic.range.intersection(selection_range);
-            }
-        );
-        
-        // Create a list of all the rules that 1) are violated in the current selection and 2) have "fix"es defined.
-        var fixableRulesInSelection: Rule[] = fixableDiagnosticsInSelection.flatMap(
-            (diagnostic) => {
-                return diagnostic.rule
-            }
-        );
-        var uniqueFixableRulesInSelection = [...new Set(fixableRulesInSelection)]
-
-        // Create one "Fix All" action for each rule.
-        var listOfFixAllActions: vscode.CodeAction[] = []
-        uniqueFixableRulesInSelection.forEach(
-            (rule: Rule) => {
-                // const fixAllAction      = new vscode.CodeAction('Apply all Dryer Lint fixes (quick fix)', vscode.CodeActionKind.SourceFixAll);
-                // fixAllAction.edit = new vscode.WorkspaceEdit();
-
-                // Create human-readable label that is shown in quick-fix menu.
-                const edits = generateTextEditFixes(document, fixableDiagnosticsInSelection.filter(diag => diag.rule === rule), this.fixes);
-                
-                if (edits.length > 1) {
-                    // If there two or more edits, then we create a "fix all" item. 
-                    // Otherwise, we are just cluttering the menu.
-                    var actionLabel: string =`Fix all (x${edits.length}): "${rule.name}" (Dryer Lint)`;
-                    const quickFixAllAction = new vscode.CodeAction(actionLabel, vscode.CodeActionKind.QuickFix);
-                    quickFixAllAction.edit = new vscode.WorkspaceEdit();
-                    quickFixAllAction.edit.set(document.uri, edits);
-                    listOfFixAllActions.push(quickFixAllAction)
-                    if (edits) {
-                        dryerLintLog(`Created list of ${edits.length} edits for "Fix All" action: [${edits.flatMap(edit => "\n\t" + edit.newText)}\n].`)
-                    }
-                }
+                dryerLintLog(`A diagnostic is active at the selected text: ${diagnostic}`)
             }
         )
 
-        dryerLintLog(`Created ${listOfFixAllActions.length} "Fix All" actions.`)
-        return listOfFixAllActions
+        dryerLintLog(`There are ${fixableRegexDiagnostics.length} diagnostics in the selection with ${fixableRegexDiagnostics.length} fixable.}`)
+        if (!fixableRegexDiagnostics) {
+            // No relevant diagnostics found.
+            dryerLintLog('No fixable diagnostics found in selection.')
+            return []
+        }
+        
+        // Create a list of all the rules that 1) are violated in the current selection and 2) have "fix"es defined.
+        var fixablesRules: Rule[] = fixableRegexDiagnostics.flatMap(
+                                                                (diagnostic) => diagnostic.rule
+                                                            );
+        // Remove non-unique values
+        var fixablesRules = [...new Set(fixablesRules)]
+
+        // Create one "Fix All" action for each rule.
+        var n_rulesWithOnlyOneEdit = 0;
+        const actions: vscode.CodeAction[] = fixablesRules.flatMap(
+            (rule: Rule) => {
+                const edits: vscode.TextEdit[] 
+                        = generateTextEditFixes(
+                            fixableRegexDiagnostics.filter(diagnostic => diagnostic.rule === rule)
+                        );
+                
+                // If there two or more edits, then we create a "fix all" item. 
+                // Otherwise, we are just cluttering the menu.
+                if (edits.length <= 2) {
+                    if (edits.length == 1) n_rulesWithOnlyOneEdit++ ;
+                    return []
+                }
+                // Create human-readable label that is shown in quick-fix menu.
+                var actionLabel: string =`Fix all (x${edits.length}): "${rule.name}" (Dryer Lint)`;
+                const quickFixAllAction = new vscode.CodeAction(actionLabel, vscode.CodeActionKind.QuickFix);
+                quickFixAllAction.edit = new vscode.WorkspaceEdit();
+                quickFixAllAction.edit.set(document.uri, edits);
+                dryerLintLog(`Created list of ${edits.length} edits for "Fix All" action: [${edits.flatMap(edit => "\n\t" + edit.newText)}\n].`)
+                return quickFixAllAction
+            }
+        )
+
+        const run_time = Date.now() - start_time;
+        dryerLintLog(`Created ${actions.length} "Fix All" actions for ${this.ruleSet} in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n]. Skipped ${n_rulesWithOnlyOneEdit} rules that had only 1 edit.`)
+        return actions
     }
 }
 
-function generateTextEditFixes(
-        document: vscode.TextDocument,
-        diagnostics: RegexMatchDiagnostic[],
-        fixes: Fix[]): vscode.TextEdit[] {
+function generateTextEditFixes(diagnostics: RegexMatchDiagnostic[]): vscode.TextEdit[] {
     const edits: vscode.TextEdit[] = [];
 
     for (const diagnostic of diagnostics) {
-        
-        if (diagnostic.rule.fix === undefined) {
-            dryerLintLog('diagnostic.rule.fix is not defined!')
+        if (diagnostic.fix === undefined) {
             continue;   
         }
-
-        let fixedText: string = diagnostic.rule.fix.replace(/\$(\d+)/g, (_, num) => diagnostic.regexMatch[Number(num)] || '' );
-
-        if (fixedText !== undefined) {
-            edits.push(new vscode.TextEdit(diagnostic.range, fixedText));
-        } else {
-            dryerLintLog(`FixedText is undefined for "${diagnostic.message}"!`)
-
-        }
-    }
-    if (!edits) {
-        dryerLintLog(`No edits generated!`)
+        edits.push(new vscode.TextEdit(diagnostic.range, diagnostic.fix));
     }
     return edits;
-}
-
-
-function applyReorderFix(text: string, fix: Fix): string | undefined {
-    const sorter: [number, string][] = [];
-    const bucket: [string, number][] = [];
-
-    let array: RegExpExecArray | null;
-    let doFix = false;
-    let count = 0;
-    while (array = fix.regex.exec(text)) {
-        const lastIndex = fix.regex.lastIndex;
-        const match = array[0];
-        const token = match.replace(fix.regex, fix.string);
-        fix.regex.lastIndex = lastIndex;
-
-        const tuple: [number, string] = [count, token];
-        const index = fix.type === 'reorder_asc'
-            ? sortedIndex(sorter, tuple, ([_i, a], [_j, b]) => a <= b)
-            : sortedIndex(sorter, tuple, ([_i, a], [_j, b]) => a >= b);
-
-        sorter.splice(index, 0, tuple);
-        bucket.push([match, array.index]);
-
-        doFix = doFix || count !== index;
-        count += 1;
-    }
-
-    if (!doFix) { return undefined; }
-
-    let result = '';
-    let offset = 0;
-    for (const [i, [j]] of sorter.entries()) {
-        const [match0, index0] = bucket[i];
-        const [match1] = bucket[j];
-        const length0 = match0.length;
-        let part = text.substring(offset, index0 + length0);
-        part = part.replace(match0, match1);
-        result += part;
-        offset = index0 + length0;
-    }
-    result += text.substr(offset);
-
-    return result;
 }

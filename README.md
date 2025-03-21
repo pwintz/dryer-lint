@@ -293,3 +293,6 @@ and publish a new `major`, `minor`, or `patch` version with
 ```
 vsce publish [major/minor/path]
 ```
+
+### Development notes
+When change the "contributes"/"configuration" in `package.json`, you need to reload the VS Code window for intellicode to update its autocompletion in the `settings.json` file.

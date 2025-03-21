@@ -15,7 +15,7 @@ export function sortedIndex<T>(sortedArray: T[], item: T, comparator: (a: T, b: 
     return lo;
 }
 
-const commentChars: Record<string, string | undefined> = {
+const commentChars: Record<string, string> = {
     c: "//",
     cpp: "//",
     java: "//",
@@ -24,7 +24,7 @@ const commentChars: Record<string, string | undefined> = {
     python: "#",
     ruby: "#",
     shellscript: "#",
-    typescript: "//",
+    typescript: "//"
 };
 
 export function getLineCommentChar(document: vscode.TextDocument): string | undefined {

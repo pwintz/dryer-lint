@@ -13,6 +13,7 @@
         "url": "https://github.com/pwintz/dryer-lint/issues"
     },
     "license": "MIT",
+    "pricing": "Free",
     "keywords": [
         "productivity",
         "visual studio code",
@@ -32,13 +33,98 @@
     ],
     "contributes": {
         "configuration": {
-            "title": "dryer-lint",
+            "title": "dryerLint",
             "properties": {
+                "dryerLint.ruleSets": {
+                    "type": "array",
+                    "description": "Contains a list of Dryer Lint rule sets for defining groups of linting rules in different languages.",
+                    "items": {
+                        "required": [
+                            "name",
+                            "language",
+                            "rules"
+                        ],
+                        "properies": {
+                            "name": {
+                                "type": "string",
+                                "description": "Name of the rule set."
+                            },
+                            "language": {
+                                "type": [
+                                    "string",
+                                    "array"
+                                ],
+                                "minLength": 1,
+                                "description": "The programming language(s) the rule set applies to."
+                            },
+                            "glob": {
+                                "type": [
+                                    "string"
+                                ],
+                                "description": "A file glob to select which files to apply this rule set to."
+                            },
+                            "rules": {
+                                "type": "array",
+                                "description": "List of Dryer Lint rules.",
+                                "items": {
+                                    "required": [
+                                        "name",
+                                        "pattern"
+                                    ],
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "A concise name for the rule."
+                                        },
+                                        "pattern": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "A regular expression pattern to match a rule violation."
+                                        },
+                                        "maxLines": {
+                                            "type": "integer",
+                                            "default": 1,
+                                            "exclusiveMinimum": 0,
+                                            "description": "The maximum number of lines the pattern matches at a time. The default is 1."
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "The message to print when a rule violation is found (optional). If no message is provided, the rules name is used."
+                                        },
+                                        "severity": {
+                                            "type": "string",
+                                            "enum": [
+                                                "Error",
+                                                "Warning",
+                                                "Information",
+                                                "Hint"
+                                            ],
+                                            "default": "Warning",
+                                            "description": "Severity of the diagnostic to display."
+                                        },
+                                        "fix": {
+                                            "type": "string",
+                                            "description": "The replacement fix to apply. Substitution tokens starting with `$` can be used ($0 is the matched text, $1 is the first capture group, and so on)."
+                                        },
+                                        "caseInsensitive": {
+                                            "type": "boolean",
+                                            "default": false,
+                                            "description": "Enable case insensitive Regex matching, to ignore capitalization."
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
                 "dryer-lint": {
                     "type": "object",
                     "required": [
                         "rules"
                     ],
+                    "deprecationMessage": "Deprecated: dryerLint.ruleSets instead.",
                     "properties": {
                         "language": {
                             "type": [
@@ -105,16 +191,6 @@
                                         "type": "string",
                                         "description": "The fix to apply. Substitution tokens starting with `$` can be used."
                                     },
-                                    "fixType": {
-                                        "type": "string",
-                                        "enum": [
-                                            "reorder_asc",
-                                            "reorder_desc",
-                                            "replace"
-                                        ],
-                                        "default": "replace",
-                                        "description": "The type of fix to apply. `reorder_*` fixes can be controlled using substitution tokens in `quickFix`."
-                                    },
                                     "caseInsensitive": {
                                         "type": "boolean",
                                         "default": false,
@@ -137,11 +213,16 @@
         "lint": "tslint -p ./",
         "watch": "tsc -watch -p ./"
     },
+    "dependencies": {
+        "@types/vscode": "^1.98.0",
+        "glob": "^11.0.1",
+        "is-glob": "^4.0.3"
+    },
     "devDependencies": {
-        "@types/node": "^12.20.15",
-        "@types/vscode": "^1.97.0",
-        "eslint": "^7.30.0",
-        "typescript": "^4.9.5",
-        "vsce": "^1.95.0"
+        "@types/is-glob": "^4.0.4",
+        "@types/node": "^22.13.10",
+        "@types/vscode": "^1.98.0",
+        "@vscode/vsce": "^3.3.0",
+        "typescript": "^5.8.2"
     }
 }
