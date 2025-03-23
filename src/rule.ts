@@ -73,11 +73,11 @@ export class RuleSet {
         return this.doesMatchLanguage(document.languageId) && this.doesMatchGlob(document.fileName)
     }
 
-    public doesMatchLanguage(languageId: string): boolean {
+    private doesMatchLanguage(languageId: string): boolean {
         return this.languages.includes(languageId)
     }
 
-    public doesMatchGlob(filePath: string): boolean {
+    private doesMatchGlob(filePath: string): boolean {
 
         // TODO: We don't handle multiroot workspaces: https://code.visualstudio.com/docs/editor/workspaces/workspaces#_multiroot-workspace
         const workspaceFolder: string  | undefined = vscode.workspace.workspaceFolders?.[0].uri.fsPath
@@ -86,15 +86,15 @@ export class RuleSet {
         }
         const relativePathFromWorkspaceRoot = path.relative(workspaceFolder, filePath)
 
-        dryerLintLog("Current working directory:" + cwd())
-        dryerLintLog("glob working directory: " + workspaceFolder)
-        dryerLintLog("glob pattern: " + this.glob)
-        dryerLintLog("glob relativePathFromWorkspaceRoot: " + relativePathFromWorkspaceRoot)
+//         dryerLintLog("Current working directory:" + cwd())
+//         dryerLintLog("glob working directory: " + workspaceFolder)
+//         dryerLintLog("glob pattern: " + this.glob)
+//         dryerLintLog("glob relativePathFromWorkspaceRoot: " + relativePathFromWorkspaceRoot)
         // const globs = [this.glob, escape(relativePathFromWorkspaceRoot)];
         // dryerLintLog(`glob array: [${globs}]`)
         
-        const ignoreAllButTargetFilePattern = `!(**/${path.basename(relativePathFromWorkspaceRoot)})`;
-        dryerLintLog(`ignoreAllButTargetFilePattern: ${ignoreAllButTargetFilePattern}`)
+        // const ignoreAllButTargetFilePattern = `!(**/${path.basename(relativePathFromWorkspaceRoot)})`;
+        // dryerLintLog(`ignoreAllButTargetFilePattern: ${ignoreAllButTargetFilePattern}`)
 
         const globResult:string[] = globSync(
             this.glob,
@@ -124,16 +124,26 @@ export class RuleSet {
         )
         const doesMatchGlob: boolean = globResult.includes(relativePathFromWorkspaceRoot)
 
-        dryerLintLog(`globResult: [\n\t${globResult.join('\n\t')}\n]`)
-        dryerLintLog(`Is ${relativePathFromWorkspaceRoot} in globReuls? ${doesMatchGlob}`)
+        if (globResult?.length > 0) {
+            dryerLintLog(`Results for glob="${this.glob}" in "${workspaceFolder}" for ${this}: [\n\t${globResult.join('\n\t')}\n]`)
+        } else {
+            dryerLintLog(`Found no files for glob="${this.glob}" in "${workspaceFolder}" for ${this}.`)
+        }
+        // dryerLintLog(`Is ${relativePathFromWorkspaceRoot} in globReults? ${doesMatchGlob}`)
         return doesMatchGlob
     }
 
     // Get a vscode.DocumentSelector, as described here: https://code.visualstudio.com/api/references/document-selector
-    public getDocumentSelector(): vscode.DocumentFilter {
-        // var globPattern = vscode.GlobPattern(this.glob)
-        // return {pattern: this.glob[0], language: this.languages[0]};
-        return {language: this.languages[0]};
+    // Currently, we only filter based on document language---not by glob. 
+    // Including the glob causes documents not to match the filter, but I don't know why. This is OK since we use this to determine which files to run fix providers for this RuleSet, but fix providers only generate fixes for diagnostics in the file, so if a document doesn't match this RuleSet (per ruleSet.doesMatchDocument()), then no diagnostics or fixes will be provided.
+    public getDocumentLanguageFilter(): vscode.DocumentFilter[] {
+        return this.languages.flatMap(
+            (language) => {
+                // !! 
+                // return {language: language, pattern: this.glob}
+                return {language: language}
+            }
+        );
     }
 
     public getFixableDiagnostics(selection_range: vscode.Range, diagnostics: vscode.Diagnostic[]): RegexMatchDiagnostic[] {
@@ -164,30 +174,16 @@ export class RuleSet {
         return RuleSet.all.concat([RuleSet.legacyRuleSet])
     }
 
-    public static getMatchingRuleSets(filePath: string, languageId: string): RuleSet[] {
+    public static getMatchingRuleSets(document: vscode.TextDocument): RuleSet[] {
         // While we are working on deprecating the old method of specifying rules, we include it into the set of rules we apply
         const allRuleSetsIncludingLegacy = RuleSet.all.concat([RuleSet.legacyRuleSet])
 
         const filteredRuleSets: RuleSet[] = allRuleSetsIncludingLegacy.filter(
-            (ruleSet) => ruleSet.doesMatchLanguage(languageId) && ruleSet.doesMatchGlob(filePath)
+            (ruleSet) => ruleSet.doesMatchDocument(document)
         )
-        dryerLintLog(`getMatchingRuleSets() Found ${filteredRuleSets.length} rules matching "${languageId}".`)
+        dryerLintLog(`getMatchingRuleSets() Found ${filteredRuleSets.length} ruleSets matching "${path.basename(document.fileName)}".`)
         return filteredRuleSets
     }
-
-//     public static getFixableRules(filePath: string, languageId: string){
-//         const allFixableMatchingRules: Rule[] = RuleSet.getMatchingRuleSets(fileName, .languageId)
-//             .flatMap(ruleSet => ruleSet.rules)
-//             .filter(rule => rule.fix !== undefined)
-// 
-//         var fixableRegexDiagnostics = <RegexMatchDiagnostic[]> context.diagnostics.filter(
-//             (diagnostic) => {
-//                 return diagnostic.source == DiagnosticCollectionName  
-//                         && diagnostic instanceof RegexMatchDiagnostic
-//                         && allFixableMatchingRules.includes(diagnostic.rule) 
-//             }
-//         );
-//     }
 
     toString() {
         // Create a string representation. 
@@ -267,6 +263,11 @@ export default class Rule
             readonly severityCode: vscode.DiagnosticSeverity,
             readonly fix?: string) { }
 
+    public toString(): string {
+        return `Rule{"${this.name}", Max lines: ${this.maxLines}, Has fix? ${this.fix? "Yes.": "No."}}`
+        // return `Rule{"${this.name}", ${this.regex}, ${this.fix? "Has fix.": "Does not have fix"}}`
+    }
+
     public static get all(): Partial<Record<string, Rule[]>> {
         return this.rules;
     }
@@ -339,7 +340,7 @@ export default class Rule
             // Set the RegEx flags.
             // * g: Find all of the matches.
             // * i: (Optional) Case insensitive.
-            var flags = caseInsensitive? `gi` : `g`
+            var flags = caseInsensitive? `gmi` : `gm`
             regex = new RegExp(pattern, flags);
         } catch (error) {
             vscode.window.showErrorMessage(`Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".`)

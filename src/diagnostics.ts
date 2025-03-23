@@ -3,6 +3,7 @@ import Rule, { RuleSet } from './rule';
 import * as util from './util';
 import { dryerLintLog } from './extension'
 import * as dryerLint from './extension'
+import path = require('path');
 
 // The value of DiagnosticCollectionName is used as the "source" property on Diagnostic objects.
 export const DiagnosticCollectionName = 'Dryer Lint';
@@ -67,17 +68,17 @@ export class RegexMatchDiagnostic extends vscode.Diagnostic
 }
 
 export default function activateDiagnostics(context: vscode.ExtensionContext): void {
-    const diagnostics = vscode.languages.createDiagnosticCollection(DiagnosticCollectionName);
-    context.subscriptions.push(diagnostics);
+    const diagnosticsCollections = vscode.languages.createDiagnosticCollection(DiagnosticCollectionName);
+    context.subscriptions.push(diagnosticsCollections);
 
     // Update the diagnostics whenever the a document becomes active.
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
             // 'editor' is the currently active editor or undefined. The active editor is the one that currently has focus or, when none has focus, the one that has changed input most recently.
             if (editor) { 
-                dryerLintLog(`Refresing diagnostics for "${editor.document.fileName}" because editor became active.`)
+                dryerLintLog(`Refresing diagnostics for "${path.basename(editor.document.fileName)}" because editor became active.`)
                 try {
-                    refreshDiagnostics(editor.document, diagnostics); 
+                    refreshDiagnostics(editor.document, diagnosticsCollections); 
                 } catch (error) {
                     dryerLint.error(`There was an error while refreshing diagnostics: ${error}, ${Error().stack}`);
 
@@ -98,8 +99,8 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
                     // This if/return block stops this from happening.
                     return
                 }
-                dryerLintLog(`Refresing diagnostics for "${event.document.fileName}" because document changed.`)
-                return refreshDiagnostics(event.document, diagnostics)
+                dryerLintLog(`Refresing diagnostics for "${path.basename(event.document.fileName)}" because document changed.`)
+                return refreshDiagnostics(event.document, diagnosticsCollections)
             })
     );
 
@@ -115,7 +116,7 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
         }
         dryerLintLog(`Refresing diagnostics for "${fileName}" during initial activation.`)
         try {
-            refreshDiagnostics(vscode.window.activeTextEditor.document, diagnostics);
+            refreshDiagnostics(vscode.window.activeTextEditor.document, diagnosticsCollections);
         } catch (error) {
             dryerLint.error(`There was an error while refreshing diagnostics: ${error}, ${Error().stack}`);
             throw error
@@ -131,10 +132,10 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
 
         const start_time = Date.now();
 
-        const ruleSets: RuleSet[] = RuleSet.getMatchingRuleSets(document.fileName, document.languageId);
+        const ruleSets: RuleSet[] = RuleSet.getMatchingRuleSets(document);
 
-        if (ruleSets) {
-            dryerLintLog(`Refreshing diagnostics. Found ${ruleSets.length} rule sets for\n\t"${document.fileName}".`)
+        if (ruleSets?.length > 0) {
+            dryerLintLog(`Refreshing diagnostics. Found ${ruleSets.length} rule sets for\n\t"${document.fileName}": [\n\t${ruleSets.join('\n\t')}\n]`)
         } else {
             dryerLintLog(`No Dryer Lint rule sets found for "${document.fileName}", which has language=${document.languageId}. No diagnostics will be generated.`)
             diagnostics.set(document.uri, []);
@@ -166,7 +167,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
         const numLines = document.lineCount;
 
         for (const rule of rules) { // Iterate over all of the rules
-            dryerLintLog(`Checking rule "${rule.name}."`)
+            // dryerLintLog(`Checking rule "${rule.name}."`)
             const rule_start_time = Date.now();
 
             for(var line=0; line < numLines; line++) {
@@ -205,6 +206,14 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
                 let array: RegExpExecArray | null;
                 while (array = rule.regex.exec(text)) {// Search for matches until we find no more.
                     const range = rangeFromMatch(document, textRange, array);
+                    if (range.start.line > line) {
+                        // If the match starts on the next line, then don't create a diagnostic -- leave it for when the next line is processed
+                        dryerLintLog(`Skipped the match "${array[0]}" for ${rule} because it starts after the current line (${range.start.line}>${line})`)
+                        // Using "break" here causes us to miss matches. Maybe because the results of rule.regex.exec are not sorted?
+                        continue
+                    } else {
+                        dryerLintLog(`Matched ${rule} with "${array[0]}" (index=${array.index}) starting on line=${range.start.line}`)
+                    }
                     const regexDiagnostic = new RegexMatchDiagnostic(rule, array, document, range);
                     diagnosticList.push(regexDiagnostic);
                 }
