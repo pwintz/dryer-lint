@@ -10,42 +10,6 @@ It is designed to
  
 Dryer Lint is based on the [`relint`](https://github.com/n0bra1n3r/relint) extension by Ryan Blonna (GitHub user [n0bra1n3r](https://github.com/n0bra1n3r)).
 
-<!-- ## Short Demo
-
-Here is a short demo showing two Dryer Lint rules for checking [Nim](https://nim-lang.org/) projects:
-
-```jsonc
-// .vscode/settings.json
-{
-    ...
-
-    "dryer-lint": {
-        "language": "nim",
-        "rules": [
-            {
-                "name": "syntax-addr",
-                "pattern": "(?<=\\W|^)(?:addr\\((.+)\\)|addr (.+)|addr: (.+)|(.+)\\.addr)",
-                "message": "syntax: use command syntax for `addr`",
-                "fix": "(addr)$1$2$3$4",
-                "severity": "Warning"
-            },
-            {
-                "name": "syntax-pragma",
-                "pattern": "{\\.(.+),\\ *(.*)}",
-                "message": "syntax: use spaces to separate pragmas",
-                "fix": "{.$1 $2}",
-                "severity": "Warning"
-            }
-        ]
-    },
-
-    ...
-}
-```
-
-![Demo1](assets/relint-demo1.gif?raw=true) -->
-
-
 ## Features
 
 Dryer Lint produces configurable diagnostics for _rule violations_, each of which are described by a [regular expression](https://www.regular-expressions.info/). 
@@ -261,8 +225,6 @@ The following is a more complex example that uses the **replace** function to or
     ...
 }
 ```
-
-<!-- ![Demo2](assets/relint-demo2.gif?raw=true) -->
 
 This configuration ensures import groups are separated by 1 newline and ensures imports within each import group do not have newlines between them.
 
