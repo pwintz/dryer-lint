@@ -56,6 +56,55 @@ The behavior similar to VS Code's built-in regex [find-and-replace functionality
 # Usage Guide
 
 Dryer Lint rules are created by adding them to `.vscode/settings.json` within your workspace.  
+Rules are grouped into one or more "rule sets". 
+For each rule set, you can set one or more languages where the rule applies and a file glob (such as `**/settings.json`). 
+Here is an example:
+```jsonc
+"dryerLint.ruleSets": [
+    {
+        "name": "Example Rule Set 1",
+        // Set the name of the languages where your rules apply
+        "language": "c++",
+        // Set a file glob (optional)
+        "glob": "**/filename.c",
+        // Set a list of rules.
+        "rules": [
+            {
+                // "name" is a string used to identify the rule
+                "name": "No apples or oranges. Only bananas",
+                // "pattern" is a JavaScript regular expression that shows diagnostic when matched
+                "pattern": "(apple|orange)",
+                // "message" is a string to show in the "Problems" VS Code panel or other places that diagnostics are shown.
+                "message": "Don't use apples or oranges. Only bananas!",
+                // "fix" (optional) is a string to replace the matched pattern.
+                "fix": "banana",
+                // "severity" (optional) is a string that must contain one of these values: "Hint", "Information", "Warning", or "Error". The default is "Warning".
+                "severity": "Error",
+                // "maxLines" (optional) is a positive integer that sets the max number of lines that the pattern is checked against at one time. The default is 1.
+                "maxLines": 2, 
+                // "caseInsensitive" (optional) is a boolean value that sets whether the regular expression uses the case insensitive flag "i". Default is false. 
+                "caseInsensitive": true
+            },
+        ]
+    }, 
+    {
+        "name": "Example Rule Set 2", 
+        "language": ["javascript", "typescript"],
+        "rules": [
+            {
+                "name": "Rule 1",
+                // ...
+            },
+            {
+                "name": "Rule 2",
+                // ...
+            }
+        ]
+    },
+    // ...
+]
+```
+<!-- 
 ```jsonc
 "dryer-lint": {
     // Set the name of the languages where your rules apply
@@ -79,7 +128,7 @@ Dryer Lint rules are created by adding them to `.vscode/settings.json` within yo
         },
     ]
 },
-```
+``` -->
 The following animation shows errors diagnostics added by Dryer Lint, matching the above rule, and quick actions used to apply the replacement “fix”.
 In the first step, an individual rule violation is selected and fixed. 
 In the second step, multiple rule violations are selected in the text and a “Fix all” option is used to fix all of them in a single step.
@@ -106,15 +155,16 @@ Saving the regex in regex101.com and placing a link to the saved regex makes it 
 ```
 (See the section “Escaping Regular Expressions”, below, regarding copying expression from regex101.com into settings JSON file.)
 
-
-In Dryer Lint, all regex searches use the `g` flag (to find multiple matches instead of only the first).
+### Regex Flags
+In Dryer Lint, all regex searches use the `g` flag (to find multiple matches instead of only the first) and the `m` flag (so that `^` matches the start of each line and `$` matches the end of each line).
 If `"caseInsensitive": true` for a given rule, then the `i` flag is also used.
 
 ### Matching Line Breaks
 By default, each regex rule is applied to a single line at a time, in which case `^` matches the start of a line and `$` matches the end.
 When `maxLines` is more than `1` (the default), however, each regex searches over the given number lines. 
-In this case, `^` matches the start of the entire string and `$`, the end (The `m` regex flag is not used). 
-To match a new line in the middle of the string, use `\r?\n` (which matches both the Windows line break `\r\n` and the Unix line break `\n`).
+Since the `m` flag is used, `^` matches the start of each line and `$` matches the end of each line.
+<!-- In this case, `^` matches the start of the entire string and `$`, the end (The `m` regex flag is not used).  -->
+<!-- To match a new line in the middle of the string, use `\r?\n` (which matches both the Windows line break `\r\n` and the Unix line break `\n`). -->
 
 ### Group Replacements in Fixes and Messages
 
@@ -186,26 +236,28 @@ The following is a more complex example that uses the **replace** function to or
 {
     ...
 
-    "dryer-lint": {
-        "language": "nim",
-        "rules": [
-            {
-                "fix": "$1\r\n$4",
-                "message": "organization: bad spacing in import group",
-                "maxLines": 0,
-                "name": "organization-import",
-                "pattern": "(^import ([.\\w]+)/.+)(\\r\\n){2,}(^import \\2/.+)"
-            },
-            {
-                "fix": "$1\r\n\r\n$4",
-                "message": "organization: bad spacing in import group",
-                "maxLines": 0,
-                "name": "organization-import",
-                "pattern": "(^import ([.\\w]+)/.+)(\\r\\n|(?:\\r\\n){3,})(^import (?!\\2/).+)"
-            }
-        ]
-    },
-
+    "dryerLint.ruleSets": [
+        {
+            "name": "nim imports",
+            "language": "nim",
+            "rules": [
+                {
+                    "fix": "$1\r\n$4",
+                    "message": "organization: bad spacing in import group",
+                    "maxLines": 0,
+                    "name": "organization-import",
+                    "pattern": "(^import ([.\\w]+)/.+)(\\r\\n){2,}(^import \\2/.+)"
+                },
+                {
+                    "fix": "$1\r\n\r\n$4",
+                    "message": "organization: bad spacing in import group",
+                    "maxLines": 0,
+                   "name": "organization-import",
+                    "pattern": "(^import ([.\\w]+)/.+)(\\r\\n|(?:\\r\\n){3,})(^import (?!\\2/).+)"
+                }
+            ]
+        }
+    ]
     ...
 }
 ```
@@ -221,22 +273,26 @@ The following is a simple configuration that issues diagnostics for maximum char
 ```jsonc
 {
     ...
-
-    [
+    "dryerLint.ruleSets": [
         {
-            "message": "format: 80 columns exceeded",
-            "name": "format-line",
-            "pattern": "^.{81,120}$",
-            "severity": "Warning"
-        },
-        {
-            "message": "format: 120 columns exceeded",
-            "name": "format-line",
-            "pattern": "^.{121,}$",
-            "severity": "Error"
+            "name": "Column Width Example",
+            "language": ["python", "javascript", "typescript"],
+            "rules": [
+                {
+                    "message": "format: 80 columns exceeded",
+                    "name": "format-line",
+                    "pattern": "^.{81,120}$",
+                    "severity": "Warning"
+                },
+                {
+                    "message": "format: 120 columns exceeded",
+                    "name": "format-line",
+                    "pattern": "^.{121,}$",
+                    "severity": "Error"
+                }
+            ]
         }
     ]
-
     ...
 }
 ```
@@ -269,7 +325,7 @@ To see the console output of Dryer Lint, open the VS Code “Output” panel and
 To run this extension in a workspace—without building and installing a VS Code extension package globally—follow these steps:
 
 0. Open the workspace where you want to test Dryer Lint.
-1. Create `.vscode/extension` as a directory relative to the root of your workspace (if it does not already exist).
+1. Create `.vscode/extension` as a directory relative to the root of your workspace (if it does not already exist). 
 2. Clone Dryer Lint into `.vscode/extension`. The resulting path should be `.vscode/extension/dryer-lint`. 
 3. Change your working directory to `.vscode/extension/dryer-lint` and run `npm install` (as described in the previous section) to install all of Dryer Lint's dependencies. 
 4. Run `npm run compile` to compile the project.
@@ -295,4 +351,4 @@ vsce publish [major/minor/path]
 ```
 
 ### Development notes
-When change the "contributes"/"configuration" in `package.json`, you need to reload the VS Code window for intellicode to update its autocompletion in the `settings.json` file.
+When change the "contributes"/"configuration" in `package.json`, you need to reload the VS Code window for IntelliCode to update its autocompletion in the `settings.json` file.

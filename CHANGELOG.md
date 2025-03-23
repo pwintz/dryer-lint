@@ -1,5 +1,13 @@
 # Dryer Lint Change Log
 
+## 1.2 
+
+* Introduced Rule Sets so that rules for different languages can be defined.
+* Added file globs to allow users to filter rule sets so that they only apply to files that match a given pattern.
+* Reorganized the Dryer Lint configurations so that rules are given as a list of rule sets in the `"dryerLint.ruleSets"` setting instead of the (now deprecated) `"dryer-lint"` setting.
+* Made some improvements to make fixes more reliable.
+* Updated to ES2021 and updated package dependencies to remove some out-of-date packages. 
+
 ## 1.1
 - Update the Quick Fix menu to show a separate item for each rule violation and a "Fix all" item for any rule that is violated multiple times. The items show what rule is being violated. The global "Fix all" item from previous versions was removed because it generally did not work well.
 - Deleted code for "sorting" fixes.
