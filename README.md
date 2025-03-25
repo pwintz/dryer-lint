@@ -7,7 +7,9 @@ It is designed to
 - allow syntax checking for programming languages that do not yet have their own specialized linters
 - define user-specific lint rules for a given project or code style.
 - Enable automated fixes to rule violations. 
- 
+
+Dryer Link is available in the [VS Code Extension Marketplace](https://marketplace.visualstudio.com/items?itemName=pwintz.dryer-lint) and [GitHub](https://github.com/pwintz/dryer-lint).
+
 Dryer Lint is based on the [`relint`](https://github.com/n0bra1n3r/relint) extension by Ryan Blonna (GitHub user [n0bra1n3r](https://github.com/n0bra1n3r)).
 
 ## Features
@@ -258,6 +260,18 @@ The following is a simple configuration that issues diagnostics for maximum char
     ...
 }
 ```
+
+# Related Projects
+
+* Dryer Lint was forked from [`relint`](https://github.com/n0bra1n3r/relint) extension by [Ryan Blonna](https://github.com/n0bra1n3r). 
+The `relint` project has been dormant since 2021 aside from updates merged from Dryer Lint.
+
+* [`ast-grep`](https://ast-grep.github.io/) is command line tool for custom linting, which also has a [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=ast-grep.ast-grep-vscode). 
+The setup of ast-grep is somewhat more involved, whereas Dryer Lint only requires installing the VS Code extension, but ast-grep.
+* [Semgrep](https://semgrep.dev/): AI-based static analysis.
+* [`comby`](https://comby.dev/)
+* Structural Search for [JetBrains IntelliJ IDEA](https://www.jetbrains.com/help/idea/structural-search-and-replace.html#to_search_structurally)
+
 
 # Development
 
