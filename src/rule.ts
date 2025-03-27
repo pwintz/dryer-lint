@@ -12,14 +12,14 @@ export const RuleSetsConfigName: string = 'dryerLint.ruleSets';
 
 export type Severity = keyof typeof vscode.DiagnosticSeverity;
 
-type RuleSetConfig = {
+export type RuleSetConfig = {
     name: string, 
     language: string[] | string, 
     glob: string, 
     rules: RuleConfig[]
 }
 
-type RuleConfig = {
+export type RuleConfig = {
     name: string,
     pattern: string,
     fix?: string,
@@ -291,7 +291,7 @@ export default class Rule
         RuleSet.loadRules();
     }
 
-    static ruleConfigToRule(ruleConfig: RuleConfig): Rule | undefined {
+    public static ruleConfigToRule(ruleConfig: RuleConfig): Rule | undefined {
 
         if (!ruleConfig.name){
             vscode.window.showErrorMessage(`Missing name for the Dryer Lint rule with pattern="${ruleConfig.pattern}".`)
