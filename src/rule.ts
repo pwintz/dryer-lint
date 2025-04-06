@@ -43,16 +43,16 @@ export class RuleSet {
     private static all: RuleSet[] = [];
     private static legacyRuleSet: RuleSet;
 
-    private name: string;
+    private _name: string;
     private languages: string[];
     private glob: string;
     public rules: Rule[];
 
     constructor (name: string, languages: string | string[], glob: string, rules: Rule[]) {
-        this.name = name;
+        this._name = name;
         // "languages" may be given as a single language or as multiple, so we convert it to an array if it is a single string.
         if (typeof languages === 'string') {
-            this.languages = [languages]
+            this.languages = [languages];
         } else {
             this.languages = languages;
         }
@@ -62,29 +62,33 @@ export class RuleSet {
         // Check that the glob are OK.
         if (this.glob){
             if(!isGlob(glob)) {
-                vscode.window.showErrorMessage(`${this.name} had a bad glob pattern: ${glob}`)
+                vscode.window.showErrorMessage(`${this._name} had a bad glob pattern: ${glob}`);
             }
         } else {
-            dryerLintLog(`No glob found for ${this}.`)
+            dryerLintLog(`No glob found for ${this}.`);
         }
     }
 
+    public get name(): string {
+        return this._name;
+    }
+
     public doesMatchDocument(document: vscode.TextDocument): boolean {
-        return this.doesMatchLanguage(document.languageId) && this.doesMatchGlob(document.fileName)
+        return this.doesMatchLanguage(document.languageId) && this.doesMatchGlob(document.fileName);
     }
 
     private doesMatchLanguage(languageId: string): boolean {
-        return this.languages.includes(languageId)
+        return this.languages.includes(languageId);
     }
 
     private doesMatchGlob(filePath: string): boolean {
 
         // TODO: We don't handle multiroot workspaces: https://code.visualstudio.com/docs/editor/workspaces/workspaces#_multiroot-workspace
-        const workspaceFolder: string  | undefined = vscode.workspace.workspaceFolders?.[0].uri.fsPath
+        const workspaceFolder: string  | undefined = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
         if (workspaceFolder === undefined) {
             return false;
         }
-        const relativePathFromWorkspaceRoot = path.relative(workspaceFolder, filePath)
+        const relativePathFromWorkspaceRoot = path.relative(workspaceFolder, filePath);
 
 //         dryerLintLog("Current working directory:" + cwd())
 //         dryerLintLog("glob working directory: " + workspaceFolder)
@@ -117,20 +121,20 @@ export class RuleSet {
                         return !p.isNamed(path.basename(filePath));
                     },
                     childrenIgnored: (p: Path) => {
-                        return p.isNamed('.git') || p.isNamed('node_modules') 
+                        return p.isNamed('.git') || p.isNamed('node_modules'); 
                     }
                 },
              }
-        )
-        const doesMatchGlob: boolean = globResult.includes(relativePathFromWorkspaceRoot)
+        );
+        const doesMatchGlob: boolean = globResult.includes(relativePathFromWorkspaceRoot);
 
         if (globResult?.length > 0) {
-            dryerLintLog(`Results for glob="${this.glob}" in "${workspaceFolder}" for ${this}: [\n\t${globResult.join('\n\t')}\n]`)
+            dryerLintLog(`Results for glob="${this.glob}" in "${workspaceFolder}" for ${this}: [\n\t${globResult.join('\n\t')}\n]`);
         } else {
-            dryerLintLog(`Found no files for glob="${this.glob}" in "${workspaceFolder}" for ${this}.`)
+            dryerLintLog(`Found no files for glob="${this.glob}" in "${workspaceFolder}" for ${this}.`);
         }
         // dryerLintLog(`Is ${relativePathFromWorkspaceRoot} in globReults? ${doesMatchGlob}`)
-        return doesMatchGlob
+        return doesMatchGlob;
     }
 
     // Get a vscode.DocumentSelector, as described here: https://code.visualstudio.com/api/references/document-selector
@@ -141,13 +145,13 @@ export class RuleSet {
             (language) => {
                 // !! 
                 // return {language: language, pattern: this.glob}
-                return {language: language}
+                return {language: language};
             }
         );
     }
 
     public getFixableDiagnostics(selection_range: vscode.Range, diagnostics: vscode.Diagnostic[]): RegexMatchDiagnostic[] {
-        const allFixableMatchingRules: Rule[] = this.rules.filter(rule => rule.fix !== undefined)
+        const allFixableMatchingRules: Rule[] = this.rules.filter(rule => rule.fix !== undefined);
         const fixableDiagnostics: RegexMatchDiagnostic[] = <RegexMatchDiagnostic[]> diagnostics.filter(
             (diagnostic) => {
                 return diagnostic instanceof RegexMatchDiagnostic
@@ -160,34 +164,34 @@ export class RuleSet {
         // Print a message for debugging.
         fixableDiagnostics.forEach(
             (diagnostic) => {
-                dryerLintLog(`A diagnostic is active at the selected text: ${diagnostic}`)
+                dryerLintLog(`A diagnostic is active at the selected text: ${diagnostic}`);
             }
-        )
-        return fixableDiagnostics
+        );
+        return fixableDiagnostics;
     }
     
     getFixableRules(): Rule[] {
-        return this.rules.filter(rule => rule.fix !== undefined)
+        return this.rules.filter(rule => rule.fix !== undefined);
     }
 
     static getAllRules() {
-        return RuleSet.all.concat([RuleSet.legacyRuleSet])
+        return RuleSet.all.concat([RuleSet.legacyRuleSet]);
     }
 
     public static getMatchingRuleSets(document: vscode.TextDocument): RuleSet[] {
         // While we are working on deprecating the old method of specifying rules, we include it into the set of rules we apply
-        const allRuleSetsIncludingLegacy = RuleSet.all.concat([RuleSet.legacyRuleSet])
+        const allRuleSetsIncludingLegacy = RuleSet.all.concat([RuleSet.legacyRuleSet]);
 
         const filteredRuleSets: RuleSet[] = allRuleSetsIncludingLegacy.filter(
             (ruleSet) => ruleSet.doesMatchDocument(document)
-        )
-        dryerLintLog(`getMatchingRuleSets() Found ${filteredRuleSets.length} ruleSets matching "${path.basename(document.fileName)}".`)
-        return filteredRuleSets
+        );
+        dryerLintLog(`getMatchingRuleSets() Found ${filteredRuleSets.length} ruleSets matching "${path.basename(document.fileName)}".`);
+        return filteredRuleSets;
     }
 
     toString() {
         // Create a string representation. 
-        return `RuleSet{"${this.name}", languages: "${this.languages}", glob: "${this.glob}" rule count: ${this.rules.length}}`
+        return `RuleSet{"${this._name}", languages: "${this.languages}", glob: "${this.glob}" rule count: ${this.rules.length}}`;
     }
 
     static loadRules(): void {
@@ -195,7 +199,7 @@ export class RuleSet {
     }
     
     static getRules(): RuleSet[] {
-        dryerLintLog(`Reading list of RulesSets from settings.`)
+        dryerLintLog(`Reading list of RulesSets from settings.`);
         const dryerLintConfig: vscode.WorkspaceConfiguration  = vscode.workspace.getConfiguration("dryerLint");
         
         if (!dryerLintConfig.has("ruleSets")){
@@ -204,7 +208,7 @@ export class RuleSet {
         const ruleSetsConfigs: RuleSetConfig[] = dryerLintConfig.get<RuleSetConfig[]>("ruleSets") || [];
         
         if (ruleSetsConfigs.length == 0){
-            throw new Error("The setting dryerLint.ruleSets was empty!")
+            throw new Error("The setting dryerLint.ruleSets was empty!");
         }
 
         // !! Print statements for debugging.
@@ -217,15 +221,15 @@ export class RuleSet {
 
         const ruleSets: RuleSet[] =  ruleSetsConfigs.flatMap(
             (ruleSetConfig: RuleSetConfig) => {
-                const rules: Rule[] = ruleSetConfig.rules.flatMap(rule => Rule.ruleConfigToRule(rule) || [] )
+                const rules: Rule[] = ruleSetConfig.rules.flatMap(rule => Rule.ruleConfigToRule(rule) || [] );
                 const glob: string = ruleSetConfig.glob || "**";
-                const ruleSet: RuleSet = new RuleSet(ruleSetConfig.name, ruleSetConfig.language, glob, rules)
+                const ruleSet: RuleSet = new RuleSet(ruleSetConfig.name, ruleSetConfig.language, glob, rules);
                 dryerLintLog(`\t${ruleSet}`);
-                return ruleSet
+                return ruleSet;
             }
-        )
-        dryerLintLog(`\tLoaded ${ruleSets.length} RuleSets.`)
-        return ruleSets
+        );
+        dryerLintLog(`\tLoaded ${ruleSets.length} RuleSets.`);
+        return ruleSets;
         // var n_invalid_rules = ruleList.length - valid_rules.length
         // if (n_invalid_rules == 0) {
         //     vscode.window.setStatusBarMessage(`Dryer Lint: ${ruleList.length} rules OK.`, 30*1000);
@@ -236,16 +240,14 @@ export class RuleSet {
     }
 
     static loadLegacyRuleSet() {
-        dryerLintLog(`Reading list of legacy rules from settings.`)
+        dryerLintLog(`Reading list of legacy rules from settings.`);
         const dryer_lint_config = vscode.workspace.getConfiguration(ConfigSectionName);
         const language = dryer_lint_config.get<string | string[]>('language') || [];
         const ruleConfigs: RuleConfig[] = dryer_lint_config.get<RuleConfig[]>('rules') ?? [];
 
-        const rules = ruleConfigs.flatMap(rule => Rule.ruleConfigToRule(rule) || [])
-
-
+        const rules = ruleConfigs.flatMap(rule => Rule.ruleConfigToRule(rule) || []);
         const glob = "**";
-        RuleSet.legacyRuleSet = new RuleSet('legacy rules', language, glob, rules)
+        RuleSet.legacyRuleSet = new RuleSet('legacy rules', language, glob, rules);
     }
 }
 
@@ -264,7 +266,7 @@ export default class Rule
             readonly fix?: string) { }
 
     public toString(): string {
-        return `Rule{"${this.name}", Max lines: ${this.maxLines}, Has fix? ${this.fix? "Yes.": "No."}}`
+        return `Rule{"${this.name}", Max lines: ${this.maxLines}, Has fix? ${this.fix? "Yes.": "No."}}`;
         // return `Rule{"${this.name}", ${this.regex}, ${this.fix? "Has fix.": "Does not have fix"}}`
     }
 
@@ -285,7 +287,7 @@ export default class Rule
             if (event.affectsConfiguration(RuleSetsConfigName)) {
                 RuleSet.loadRules();
             }
-        })
+        });
 
         RuleSet.loadLegacyRuleSet();
         RuleSet.loadRules();
@@ -294,13 +296,13 @@ export default class Rule
     public static ruleConfigToRule(ruleConfig: RuleConfig): Rule | undefined {
 
         if (!ruleConfig.name){
-            vscode.window.showErrorMessage(`Missing name for the Dryer Lint rule with pattern="${ruleConfig.pattern}".`)
-            return undefined
+            vscode.window.showErrorMessage(`Missing name for the Dryer Lint rule with pattern="${ruleConfig.pattern}".`);
+            return undefined;
         }
         
         if (!ruleConfig.pattern){
-            vscode.window.showErrorMessage(`Missing or invalid pattern "${ruleConfig.pattern} for "${ruleConfig.name}".`)
-            return undefined
+            vscode.window.showErrorMessage(`Missing or invalid pattern "${ruleConfig.pattern} for "${ruleConfig.name}".`);
+            return undefined;
         }
 
 
@@ -315,24 +317,24 @@ export default class Rule
 
         // if (ruleConfig.severity !== undefined && vscode.DiagnosticSeverity[ruleConfig.severity] === undefined) {
         if (severity === undefined) {
-            vscode.window.showErrorMessage(`Invalid severity "${ruleConfig.severity}" for the Dryer Lint rule "${ruleConfig.name}".`)
-            return undefined
+            vscode.window.showErrorMessage(`Invalid severity "${ruleConfig.severity}" for the Dryer Lint rule "${ruleConfig.name}".`);
+            return undefined;
         }
 
         // If maxLines defined, check that it is positive
         if (maxLines < 1) {
-            vscode.window.showErrorMessage(`Invalid maxLines="${ruleConfig.maxLines}" for the Dryer Lint rule "${ruleConfig.name}". Must be greater than or equal to zero.`)
-            return undefined
+            vscode.window.showErrorMessage(`Invalid maxLines="${ruleConfig.maxLines}" for the Dryer Lint rule "${ruleConfig.name}". Must be greater than or equal to zero.`);
+            return undefined;
         }
 
         if (typeof caseInsensitive !== "boolean") {
-            vscode.window.showErrorMessage(`Value of caseInsensitive="${caseInsensitive}" should be "true" or "false" for the Dryer Lint rule "${ruleConfig.name}".`)
-            return undefined
+            vscode.window.showErrorMessage(`Value of caseInsensitive="${caseInsensitive}" should be "true" or "false" for the Dryer Lint rule "${ruleConfig.name}".`);
+            return undefined;
         }
 
         if (ruleConfig.fix !== undefined && ruleConfig.fix === null) {
-            vscode.window.showErrorMessage(`Invalid ruleConfig.fix "${ruleConfig.fix}" for the Dryer Lint rule "${ruleConfig.name}".`)
-            return undefined
+            vscode.window.showErrorMessage(`Invalid ruleConfig.fix "${ruleConfig.fix}" for the Dryer Lint rule "${ruleConfig.name}".`);
+            return undefined;
         }
 
         var regex: RegExp | undefined;
@@ -340,11 +342,11 @@ export default class Rule
             // Set the RegEx flags.
             // * g: Find all of the matches.
             // * i: (Optional) Case insensitive.
-            var flags = caseInsensitive? `gmi` : `gm`
+            var flags = caseInsensitive? `gmi` : `gm`;
             regex = new RegExp(pattern, flags);
         } catch (error) {
-            vscode.window.showErrorMessage(`Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".`)
-            return undefined
+            vscode.window.showErrorMessage(`Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".`);
+            return undefined;
         }
 
         return new Rule(
@@ -355,7 +357,7 @@ export default class Rule
             regex,
             severity,
             fix
-        )
+        );
     }
     
 }

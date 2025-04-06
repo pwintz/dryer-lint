@@ -104,7 +104,7 @@ class SingleFixProvider implements vscode.CodeActionProvider
                 // selection_range.
                 const edits = generateTextEditFixes([diagnostic]);
                 if (edits.length === 0) { 
-                    dryerLintLog(`No edits for ${diagnostic.message}.`)
+                    dryerLintLog(`No edits for ${diagnostic.message}.`);
                     return []; 
                 }
 
@@ -114,13 +114,13 @@ class SingleFixProvider implements vscode.CodeActionProvider
                 action.edit = new vscode.WorkspaceEdit();
                 action.edit.set(document.uri, edits);
                 action.isPreferred = true;
-                dryerLintLog(`Created an action "${action.title}" for "${diagnostic.message}".`)
-                return action
+                dryerLintLog(`Created an action "${action.title}" for "${diagnostic.message}".`);
+                return action;
             }
-        )
+        );
         const run_time = Date.now() - start_time;
         if (actions) {
-            dryerLintLog(`Created list of ${actions.length} fix CodeAction in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n].`)
+            dryerLintLog(`Created list of ${actions.length} fix CodeAction in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n].`);
         }
         return actions;
     }
@@ -139,21 +139,21 @@ class FixAllProvider implements vscode.CodeActionProvider
         context: vscode.CodeActionContext
     ): vscode.CodeAction[] {
         const start_time = Date.now();
-        dryerLintLog(`===== Start of FixAllProvider.provideCodeActions() for ${this.ruleSet} =====`)
+        dryerLintLog(`===== Start of FixAllProvider.provideCodeActions() for ${this.ruleSet} =====`);
 
         if (!this.ruleSet.doesMatchDocument(document)) {
-            dryerLintLog(`The document "${path.basename(document.fileName)}" does not match this rule set: ${this.ruleSet}`)
-            return []
+            dryerLintLog(`The document "${path.basename(document.fileName)}" does not match this rule set: ${this.ruleSet}`);
+            return [];
         }
         
-        const allFixableMatchingRules: Rule[] = this.ruleSet.getFixableRules()
+        const allFixableMatchingRules: Rule[] = this.ruleSet.getFixableRules();
             
         var regexDiagnostics = <RegexMatchDiagnostic[]> context.diagnostics.filter(
             (diagnostic) => diagnostic instanceof RegexMatchDiagnostic
         );
         var regexDiagnosticsInSelection = regexDiagnostics.filter(
             (diagnostic) => diagnostic.range.intersection(selection_range) !== undefined
-        )
+        );
         var fixableRegexDiagnostics = regexDiagnosticsInSelection.filter(
             (diagnostic) => allFixableMatchingRules.includes(diagnostic.rule)
         );
@@ -161,12 +161,12 @@ class FixAllProvider implements vscode.CodeActionProvider
         // Print a message for debugging.
         fixableRegexDiagnostics.forEach(
             (diagnostic) => dryerLintLog(`A diagnostic is active at the selected text: ${diagnostic}`)
-        )
+        );
 
-        dryerLintLog(`There are ${regexDiagnostics.length} regex diagnostics with ${regexDiagnosticsInSelection.length} in the selection, and ${fixableRegexDiagnostics.length} fixable in the selection for ${this.ruleSet}.}`)
-        dryerLintLog(`regexDiagnostics: [\n\t${regexDiagnostics.join('\n\t')}\n]\nregexDiagnosticsInSelection: [\n\t${regexDiagnosticsInSelection.join('\n\t')}\n]\nfixableRegexDiagnostics: [\n\t${fixableRegexDiagnostics.join('\n\t')}\n]\n`)
+        dryerLintLog(`There are ${regexDiagnostics.length} regex diagnostics with ${regexDiagnosticsInSelection.length} in the selection, and ${fixableRegexDiagnostics.length} fixable in the selection for ${this.ruleSet}.}`);
+        dryerLintLog(`regexDiagnostics: [\n\t${regexDiagnostics.join('\n\t')}\n]\nregexDiagnosticsInSelection: [\n\t${regexDiagnosticsInSelection.join('\n\t')}\n]\nfixableRegexDiagnostics: [\n\t${fixableRegexDiagnostics.join('\n\t')}\n]\n`);
 
-        if (fixableRegexDiagnostics.length == 0) {
+        if (fixableRegexDiagnostics.length === 0) {
             // No relevant diagnostics found.
             dryerLintLog('No fixable diagnostics found in selection.')
             return []
@@ -177,7 +177,7 @@ class FixAllProvider implements vscode.CodeActionProvider
                                                                 (diagnostic) => diagnostic.rule
                                                             );
         // Remove non-unique values
-        var fixablesRules = [...new Set(fixablesRules)]
+        var fixablesRules = [...new Set(fixablesRules)];
 
         // Create one "Fix All" action for each rule.
         var n_rulesWithOnlyOneEdit = 0;
@@ -219,9 +219,9 @@ class FixAllProvider implements vscode.CodeActionProvider
                 // If there two or more non-overlapping edits, then we create a "fix all" item. 
                 // Otherwise, we are just cluttering the menu.
                 if (nonOverlappingEdits.length < 2) {
-                    if (nonOverlappingEdits.length == 1) {
+                    if (nonOverlappingEdits.length === 1) {
                         n_rulesWithOnlyOneEdit++ ;
-                        dryerLintLog(`Not creating a "Fix All" action for ${rule} because there was only 1 non-overlapping edit out of ${edits.length} total.`)
+                        dryerLintLog(`Not creating a "Fix All" action for ${rule} because there was only 1 non-overlapping edit out of ${edits.length} total.`);
                     }
                     return []
                 }
@@ -240,11 +240,11 @@ class FixAllProvider implements vscode.CodeActionProvider
                 quickFixAllAction.edit.set(document.uri, nonOverlappingEdits);
                 return quickFixAllAction
             }
-        )
+        );
 
         const run_time = Date.now() - start_time;
-        dryerLintLog(`Created ${actions.length} "Fix All" actions for ${this.ruleSet} in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n]. Skipped ${n_rulesWithOnlyOneEdit} rules that had only 1 edit.`)
-        return actions
+        dryerLintLog(`Created ${actions.length} "Fix All" actions for ${this.ruleSet} in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n]. Skipped ${n_rulesWithOnlyOneEdit} rules that had only 1 edit.`);
+        return actions;
     }
 }
 
