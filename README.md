@@ -104,6 +104,11 @@ In the second step, multiple rule violations are selected in the text and a “F
 In this animation, the highlighting and inline display of error messages is achieved with [Error Lens](https://marketplace.visualstudio.com/items?itemName=usernamehw.errorlens) extension.
 We highly recommend the use of Error Lens with Dryer Lint.
 
+To apply all of the fixes in the active editor at once (or, as many as possible that don't overlap), run `"Dryer Lint: Fix All"` from the VS Code command pallet. 
+
+![alt text](assets/fix_all_screenshot.png)
+
+
 ## Guide to Writing Regex 
 
 To learn regex and test new rules, the website [https://regex101.com/](regex101.com) is invaluable.
@@ -157,7 +162,7 @@ In JSON, the backslash character `\` is used to escape other characters, so, for
 Backslashes are used extensively in regular expressions. 
 To write regex in JSON, replace every occurrence of `\` with `\\`.  
 
-## Disable/Enable via Inline Comment 
+## Disable/Enable Dryer Lint via Inline Comment 
 
 You can disable Dryer Lint for portions of a file using an inline comment such as (in C++):
 ```c++
@@ -191,6 +196,32 @@ The inline comment characters for the following languages are recognized:
     typescript: "//",
 ```
 If a language is not recognized, then lines starting with `//` or `#` are treated as comments for the purpose of toggling Dryer Lint on and off.
+
+### Disable/Enable Specific Rule Sets via Inline Comment 
+
+In addition to enabling or disabling Dryer Lint completely, you can also turn specific rule sets on and off. 
+The comment syntax is identical, except it is followed by the name of a rule set in quotes. 
+E.g., to disable a rule set named `"my cool rulz"`, use
+
+```c++ 
+// dryer-lint: disable "my cool rulz"
+```
+NOTE: If you have disabled Dryer Lint using 
+```c++ 
+// dryer-lint: disabled
+```
+then all rules are disabled until 
+```c++ 
+// dryer-lint: enabled
+```
+occurs (or an equivalent). 
+Placing
+```c++ 
+// dryer-lint: enabled "my cool rulz"
+```
+in a section of code where Dryer Lint is disabled will not cause `"my cool rulz"` rules to become active again until Dryer Lint is renabled.
+
+<!-- TODO: Add a screenshot indicating the error message when a rule set name is not recognized. -->
 
 
 ## More examples
@@ -260,6 +291,7 @@ The following is a simple configuration that issues diagnostics for maximum char
     ...
 }
 ```
+
 
 # Related Projects
 
