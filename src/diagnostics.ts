@@ -144,49 +144,124 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
     }
 }
 
-        const start_time = Date.now();
+export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
+    dryerLintLog(`refreshDiagnostics()`);
+    // If the current document is not in the workspace, then don't update diagnostics.
+    // ?? Are we not able apply linting to non-workspace documents? 
+    if (!vscode.workspace.getWorkspaceFolder(document.uri)) {
+        return;
+    }
 
-        const ruleSets: RuleSet[] = RuleSet.getMatchingRuleSets(document);
+    const start_time = Date.now();
 
-        if (ruleSets?.length > 0) {
-            dryerLintLog(`Refreshing diagnostics. Found ${ruleSets.length} rule sets for\n\t"${document.fileName}": [\n\t${ruleSets.join('\n\t')}\n]`)
-        } else {
-            dryerLintLog(`No Dryer Lint rule sets found for "${document.fileName}", which has language=${document.languageId}. No diagnostics will be generated.`)
-            diagnostics.set(document.uri, []);
-            return
+    const ruleSets: RuleSet[] = RuleSet.getMatchingRuleSets(document);
+
+    if (ruleSets?.length > 0) {
+        dryerLintLog(`Refreshing diagnostics. Found ${ruleSets.length} rule sets for\n\t"${document.fileName}": [\n\t${ruleSets.join('\n\t')}\n]`);
+    } else {
+        dryerLintLog(`No Dryer Lint rule sets found for "${document.fileName}", which has language=${document.languageId}. No diagnostics will be generated.`);
+        diagnostics.set(document.uri, []);
+        return;
+    }
+
+    // Combine all of the rules from the rule sets into a single list.
+    // const rules: Rule[] = ruleSets.flatMap(ruleSet => ruleSet.rules);
+    const n_rules = ruleSets.reduce((count, ruleSet) => count + ruleSet.rules.length, 0);
+    if (n_rules === 0) {
+        dryerLintLog(`No Dryer Lint rules found in the rule sets [${ruleSets}]. No diagnostics will be generated.`);
+        diagnostics.set(document.uri, []);
+        return;
+    }
+
+
+    var commentChar = util.getLineCommentChar(document);
+    if (!commentChar) {
+        commentChar = "(?://|#)";
+    }
+    // Escape the comment character if it is ".", "*", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]", "\", or "/".
+    const escapedCommentChar = commentChar.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&");
+    const dryerLintCommentConfigRegex = new RegExp('^[ \\t]*'+ escapedCommentChar + '[ \t]*dryer-lint:[ \\t]*(?<config>.*?)[ \\t]*(?:"(?<ruleSetId>[^"]+)")?[ \\t]*$', 'mi');
+
+    const numLines = document.lineCount;
+    
+    const dryerLintEnabledLines: boolean[] = Array(numLines).fill(true);
+    var ruleSetsEnabledLines: { [key: string]: boolean[] } = {};
+    ruleSets.forEach(
+        (ruleSet) => {
+            ruleSetsEnabledLines[ruleSet.name] = Array(numLines).fill(true);
+        }
+    );
+
+    for(var line=0; line < numLines; line++) {
+
+        // Get the "range" of the current line.
+        let thisLineRange = document.lineAt(line).range;
+        const thisLine = document.getText(thisLineRange);
+
+        // Set the current line enabled/disabled value equal to the previous line (except for the first line). We revise this value later if we find a Dryer Lint comment.
+        if (line > 0) {
+            dryerLintEnabledLines[line] = dryerLintEnabledLines[line-1];
+            for (let ruleSetId in ruleSetsEnabledLines) {
+                ruleSetsEnabledLines[ruleSetId][line] = ruleSetsEnabledLines[ruleSetId][line-1];
+            }
         }
 
-        const rules: Rule[] = ruleSets.flatMap(ruleSet => ruleSet.rules)
-        if (rules.length == 0) {
-            dryerLintLog(`No Dryer Lint rules found in the rule sets [${ruleSets}]. No diagnostics will be generated.`)
-            diagnostics.set(document.uri, []);
-            return
+        // Match lines that look like this:
+        //   dryer-lint: disable
+        //   dryer-lint: enable
+        //   dryer-lint: disabled
+        //   dryer-lint: enabled
+        //   dryer-lint: disabled = true
+        //   dryer-lint: enabled = true
+        //   dryer-lint: enable "latex rules"
+
+        // Check if the text is enabling or disabling dryerLint.
+        var commentConfigMatch = thisLine.match(dryerLintCommentConfigRegex);
+        if (commentConfigMatch?.groups) {
+            // If the config text is "disable", "disabled", or "enabled=false" (with optional spaces around the equal sign), then disable dryerLint.
+            var enable: boolean | undefined = undefined;
+            if (commentConfigMatch.groups.config.match(/(?:disable[d]?|enable[d]?[ \t]*=[ \t]*false)/)){
+                enable = false;
+            } else if (commentConfigMatch.groups.config.match(/enable[d]?(?:[ \t]*=[ \t]*true)?/)) {
+                // If the config text is "enable", "enabled", or "enabled=true" (with optional spaces around the equal sign), then reenable dryerLint.
+                enable = true;
+            } else {
+                vscode.window.showErrorMessage(`Dryer Lint: Invalid Config Comment in \"${document.fileName}\" at line=${line}: "${commentConfigMatch.groups.config}"`);
+                continue;
+            }
+
+            const ruleSetId: string | undefined = commentConfigMatch.groups.ruleSetId;
+            if (ruleSetId === undefined) {
+                dryerLintEnabledLines[line] = enable;
+                dryerLintLog(`Set dryerLintEnabledLines[line=${line+1}]=${enable} in \"${document.fileName}\" because of comment config "${commentConfigMatch.groups.config}".`);
+
+            } else if (ruleSetsEnabledLines[ruleSetId] !== undefined) {
+                ruleSetsEnabledLines[ruleSetId][line] = enable;
+                dryerLintLog(`Set ruleSetsEnabledLines[${ruleSetId}][line=${line+1}]=${enable} in \"${document.fileName}\" because of comment config "${commentConfigMatch.groups.config}".`);
+            } else {
+                vscode.window.setStatusBarMessage(`Invalid RuleSetId "${ruleSetId}" in \"${path.basename(document.fileName)}\" at line=${line}.`, 15 * 1000);
+                
+                dryerLintLog(`Dryer Lint: Invalid RuleSetId in Config Comment in \"${document.fileName}\" at line=${line}: "${ruleSetId}" was not found amoung the rule sets [\"${ruleSets.map(ruleSet => ruleSet.name).join("\", \"")}\"].`);
+                continue;
+            }
         }
+    }
 
-        // Track whether dryerLint is enabled or disabled via comments.
-        var dryerLintEnabled = true;
+    const diagnosticList: RegexMatchDiagnostic[] = [];
 
-        var commentChar = util.getLineCommentChar(document);
-        if (!commentChar) {
-            commentChar = "(?://|#)"
-        }
-        const escapedCommentChar = commentChar.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const dryerLintCommentConfigRegex = new RegExp('^[ \\t]*'+ escapedCommentChar + '[ \t]*dryer-lint:[ \\t]*(?<config>.*?)[ \\t]*$', 'mi');
-        // dryerLintLog("RegEx for finding Dryer Lint config comments: " + dryerLintCommentConfigRegex.source)
-
-        // A list of all of diagnostics we create for the current document. 
-        // They are applied at the end of the function by calling diagnostics.set(document.uri, diagnosticList);
-        const diagnosticList: RegexMatchDiagnostic[] = [];
-
-        const numLines = document.lineCount;
-
-        for (const rule of rules) { // Iterate over all of the rules
+    for (const ruleSet of ruleSets) {
+        for (const rule of ruleSet.rules) { // Iterate over all of the rules
             // dryerLintLog(`Checking rule "${rule.name}."`)
             const rule_start_time = Date.now();
 
             for(var line=0; line < numLines; line++) {
-                // Construct a text range that includes the current line and the lines afteward up to a total of "maxLines" (or the end of the file).
-                const endLine = Math.min(line + rule.maxLines, numLines)
+                // If Dryer Lint or this particular RuleSet is disabled for this line, then skip it.
+                if(!ruleSetsEnabledLines[ruleSet.name][line] || !dryerLintEnabledLines[line]) {
+                    continue; // Skip line.
+                }
+                // Construct a text range that includes the current line and the lines afterward up to a total of "maxLines" (or the end of the file).
+                // TODO: multiline rule violations can extend into disabled lines. We should filter out these lines, somehow. 
+                const endLine = Math.min(line + rule.maxLines, numLines);
                 let textRange = document.lineAt(line)
                                         .range
                                         .union(document
@@ -196,58 +271,33 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
 
                 const text = document.getText(textRange);
 
-                // Check if the text is enabling or disabling dryerLint.
-                // TODO: Move the code for enabling or disabling dryerLint via comments into a dedicated function. 
-                // TODO: It would also be a good idea to sweep through the file once and find all of the config comments, and store the results, instead of checking repeatedly.
-                var commentConfigMatch = text.match(dryerLintCommentConfigRegex);
-                if (commentConfigMatch?.groups) {
-                    // If the config text is "disable", "disabled", or "enabled=false" (with optional spaces around the equal sign), then disable dryerLint.
-                    if (commentConfigMatch.groups.config.match(/(?:disable[d]?|enable[d]?[ \t]*=[ \t]*false)/)){
-                        dryerLintEnabled = false;
-                        dryerLintLog(`Disabled Dryer Lint in \"${document.fileName}\" at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
-                    } else if (commentConfigMatch.groups.config.match(/enable[d]?(?:[ \t]*=[ \t]*true)?/)) {
-                        // If the config text is "enable", "enabled", or "enabled=true" (with optional spaces around the equal sign), then reenable dryerLint.
-                        dryerLintEnabled = true;
-                        dryerLintLog(`Enabled Dryer Lint checking starting in \"${document.fileName}\" at line=${line} because of comment config "${commentConfigMatch.groups.config}".`)
-                    } else {
-                        vscode.window.showErrorMessage(`Dryer Lint: Invalid Config Comment in \"${document.fileName}\" at line=${line}: "${commentConfigMatch.groups.config}"`)
-                    }
-                }
-                if (!dryerLintEnabled) {
-                    continue; // Skip line.
-                }
-
+                // TODO: We should define an iterator for each rule set that takes the document and returns a list of ranges and the corresponding text.
                 let array: RegExpExecArray | null;
                 while (array = rule.regex.exec(text)) {// Search for matches until we find no more.
                     const range = rangeFromMatch(document, textRange, array);
                     if (range.start.line > line) {
                         // If the match starts on the next line, then don't create a diagnostic -- leave it for when the next line is processed
-                        dryerLintLog(`Skipped the match "${array[0]}" for ${rule} because it starts after the current line (${range.start.line}>${line})`)
+                        dryerLintLog(`Skipped the match "${array[0]}" for ${rule} because it starts after the current line (${range.start.line}>${line})`);
                         // Using "break" here causes us to miss matches. Maybe because the results of rule.regex.exec are not sorted?
-                        continue
+                        continue;
                     } else {
-                        dryerLintLog(`Matched ${rule} with "${array[0]}" (index=${array.index}) starting on line=${range.start.line}`)
+                        dryerLintLog(`Matched ${rule} with "${array[0]}" (index=${array.index}) starting on line=${range.start.line}`);
                     }
                     const regexDiagnostic = new RegexMatchDiagnostic(rule, array, document, range);
                     diagnosticList.push(regexDiagnostic);
                 }
             }
             
-            dryerLintLog(`Checking rule took ${Date.now() - rule_start_time} ms: "${rule.name}"`)
+            dryerLintLog(`Checking rule took ${Date.now() - rule_start_time} ms: "${rule.name}"`);
         }// End of for-loop over "rules"
-
-        // Display the time required to check in the log and status bar. 
-        const run_time = Date.now() - start_time;
-        dryerLintLog(`Finished refreshing Dryer Lint diagnostics in ${run_time} ms for ${rules?.length} rules applied to ${document.lineCount} lines in\n${document.fileName}.`)
-        vscode.window.setStatusBarMessage(`Dryer Lint refresh: ${run_time} ms`, 2*1000);
-
-        diagnostics.set(document.uri, diagnosticList);
-    
-    } catch (error) {
-        dryerLint.error(`There was an error while refreshing diagnostics: ${error}, ${Error().stack}`);
-        vscode.window.showErrorMessage(`There was an error while refreshing diagnostics`)
-        throw error
     }
+
+    // Display the time required to check in the log and status bar. 
+    const run_time = Date.now() - start_time;
+    dryerLintLog(`Finished refreshing Dryer Lint diagnostics in ${run_time} ms for ${n_rules} rules from ${ruleSets.length} RuleSets applied to ${document.lineCount} lines in\n${document.fileName}.`);
+    vscode.window.setStatusBarMessage(`Dryer Lint refresh: ${run_time} ms`, 2*1000);
+
+    diagnostics.set(document.uri, diagnosticList);
 }
 
 function rangeFromMatch(
