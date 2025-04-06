@@ -32,6 +32,12 @@
         "onEditSession:file"
     ],
     "contributes": {
+        "commands": [
+            {
+                "command": "dryerLint.fixAllInActiveFile",
+                "title": "Dryer Lint: Fix All"
+            }
+        ],
         "configuration": {
             "title": "dryerLint",
             "properties": {

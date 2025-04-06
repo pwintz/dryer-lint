@@ -15,6 +15,14 @@ export function sortedIndex<T>(sortedArray: T[], item: T, comparator: (a: T, b: 
     return lo;
 }
 
+export function rangeToString(range: vscode.Range): string {
+    return `${positionToString(range.start)}-${positionToString(range.start)}`;
+}
+
+export function positionToString(position: vscode.Position): string {
+    return `${position.line}:${position.character}`;
+}
+
 const commentChars: Record<string, string> = {
     c: "//",
     cpp: "//",

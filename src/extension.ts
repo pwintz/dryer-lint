@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import activateDiagnostics from './diagnostics';
 import Rule from './rule';
-import activateFixes from './fixes';
+import activateFixes, { fixAllInActiveFile } from './fixes';
 
 let outputChannel: vscode.OutputChannel;
 export function activate(context: vscode.ExtensionContext) {
@@ -13,6 +13,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     activateFixes(context);
     activateDiagnostics(context);
+
+
+    context.subscriptions.push(vscode.commands.registerCommand('dryerLint.fixAllInActiveFile',  fixAllInActiveFile));
+
 }
 
 export function deactivate() {
