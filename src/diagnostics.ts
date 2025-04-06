@@ -67,8 +67,27 @@ export class RegexMatchDiagnostic extends vscode.Diagnostic
     
 }
 
+const lastDocumentsRefreshVersions : { [key: string]: number } = {};
+
+// Clear our records of the 
+export function invalidateLastDocumentsRefreshVersions() {
+    Object.keys(lastDocumentsRefreshVersions).forEach(key => {
+        delete lastDocumentsRefreshVersions[key];
+    });
+}
+
+const diagnosticsCollections = vscode.languages.createDiagnosticCollection(DiagnosticCollectionName);
+
+export function getDiagnostics(document: vscode.TextDocument): RegexMatchDiagnostic[] {
+    const diagnostics = diagnosticsCollections.get(document.uri);
+    if (diagnostics) {
+        return diagnostics as RegexMatchDiagnostic[];
+    } else {
+        return [];
+    }
+}
+
 export default function activateDiagnostics(context: vscode.ExtensionContext): void {
-    const diagnosticsCollections = vscode.languages.createDiagnosticCollection(DiagnosticCollectionName);
     context.subscriptions.push(diagnosticsCollections);
 
     // Update the diagnostics whenever the a document becomes active.
@@ -76,59 +95,54 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
         vscode.window.onDidChangeActiveTextEditor(editor => {
             // 'editor' is the currently active editor or undefined. The active editor is the one that currently has focus or, when none has focus, the one that has changed input most recently.
             if (editor) { 
-                dryerLintLog(`Refresing diagnostics for "${path.basename(editor.document.fileName)}" because editor became active.`)
-                try {
-                    refreshDiagnostics(editor.document, diagnosticsCollections); 
-                } catch (error) {
-                    dryerLint.error(`There was an error while refreshing diagnostics: ${error}, ${Error().stack}`);
-
-                    vscode.window.showErrorMessage(`There was an error while refreshing diagnostics`)
-                    throw error
-                }
+                tryRefreshDiagnostics(editor.document, diagnosticsCollections, "the editor became active");
             }
         })
     );
-
+         
     // Update the diagnostics whenever the text of a document changes.
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event =>
             {
-                if (event.document.fileName.startsWith('extension-output-') || event.document.fileName.startsWith(DryerLintLogName)) {
-                    // Surprisingly, onDidChangeTextDocument is triggered with the extension output panel changes. 
-                    // This creates an infinite loop if we print anything to the consoue during refreshDiagnostics (spoiler: we do). 
-                    // This if/return block stops this from happening.
-                    return
-                }
-                dryerLintLog(`Refresing diagnostics for "${path.basename(event.document.fileName)}" because document changed.`)
-                return refreshDiagnostics(event.document, diagnosticsCollections)
+                tryRefreshDiagnostics(event.document, diagnosticsCollections, " document changed");
             })
-    );
+    );  
 
     // If there is an active text editor, then immediately refresh the diagnostics to include the dryerLint diagnositics.
     // This should occur after subscribing onDidChangeActiveTextEditor, in case an editor becomes active after subscribing, but before executing these lines of code.
     if (vscode.window.activeTextEditor) {
-        const fileName = vscode.window.activeTextEditor.document.fileName;
-        if (fileName.startsWith('extension-output-') || fileName.startsWith(DryerLintLogName)) {
-            // Surprisingly, onDidChangeTextDocument is triggered with the extension output panel changes. 
-            // This creates an infinite loop if we print anything to the consoue during refreshDiagnostics (spoiler: we do). 
-            // This if/return block stops this from happening.
-            return
-        }
-        dryerLintLog(`Refresing diagnostics for "${fileName}" during initial activation.`)
-        try {
-            refreshDiagnostics(vscode.window.activeTextEditor.document, diagnosticsCollections);
-        } catch (error) {
-            dryerLint.error(`There was an error while refreshing diagnostics: ${error}, ${Error().stack}`);
-            throw error
-        }
+        tryRefreshDiagnostics(vscode.window.activeTextEditor.document, diagnosticsCollections, "initial activation");
     }
 }
 
-export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
+function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollections: vscode.DiagnosticCollection, reason: string): void {
+    const fileName = document.fileName;
+    const docName = path.basename(fileName);
+    if (fileName.startsWith('extension-output-') || fileName.startsWith(DryerLintLogName)) {
+        // Surprisingly, onDidChangeTextDocument is triggered with the extension output panel changes. 
+        // This creates an infinite loop if we print anything to the consoue during refreshDiagnostics (spoiler: we do). 
+        // This if/return block stops this from happening.
+        return;
+    }
+
+    const docVersion = document.version;
+    if (lastDocumentsRefreshVersions[document.uri.toString()] === docVersion) {
+        // If the document version has not changed, then don't update diagnostics.
+        dryerLintLog(`Skipped refreshing diagnostics for "${docName}" because the document version has not changed.`);
+        return;
+    }
+    lastDocumentsRefreshVersions[document.uri.toString()] = docVersion;
+
+    dryerLintLog(`Refresing diagnostics for "${docName}" due to "${reason}".`);
+    
     try{
-        // If the current document is not in the workspace, then don't update diagnostics.
-        // ?? Are we not able apply linting to non-workspace documents? 
-        if (!vscode.workspace.getWorkspaceFolder(document.uri)) return;
+        refreshDiagnostics(document, diagnosticsCollections);
+    } catch (error) {
+        dryerLint.error(`There was an error while refreshing diagnostics: ${error}, ${Error().stack}`);
+        vscode.window.showErrorMessage(`There was an error while refreshing diagnostics: "${error}".`);
+        throw error;
+    }
+}
 
         const start_time = Date.now();
 

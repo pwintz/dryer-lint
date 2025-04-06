@@ -4,7 +4,7 @@ import { escape, glob, globIterateSync, globSync, Path } from 'glob';
 import { cwd } from 'process';
 import path = require('path');
 import isGlob = require("is-glob");
-import { RegexMatchDiagnostic } from './diagnostics';
+import { invalidateLastDocumentsRefreshVersions, RegexMatchDiagnostic } from './diagnostics';
 
 // Define the name of the configurations used in the user's settings.json.
 export const ConfigSectionName: string = 'dryer-lint';
@@ -280,12 +280,13 @@ export default class Rule
             if (event.affectsConfiguration(ConfigSectionName)) {
                 // While we work on deprecating this, 
                 RuleSet.loadLegacyRuleSet();
-
+                invalidateLastDocumentsRefreshVersions();
             }
         });
         vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration(RuleSetsConfigName)) {
                 RuleSet.loadRules();
+                invalidateLastDocumentsRefreshVersions();
             }
         });
 
