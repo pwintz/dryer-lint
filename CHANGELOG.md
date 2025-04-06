@@ -1,5 +1,13 @@
 # Dryer Lint Change Log
 
+## 1.3 
+
+- Add ability to toggle individual rule sets via inline comments.
+- Add a "Dryer Lint: Fix All" command that applies fixes for all rules in a file. 
+- Change to using Webpack for compiling and bundling Typescript code.
+- Improved performance by tracking not updating an editor's diagnostics unless the content has been changed.
+- FIX: Fixed a bug where "fix all" (for a single rule or for the "Fix All" command) would fail if any of the edits overlapped.
+
 ## 1.2 
 
 * Introduced Rule Sets so that rules for different languages can be defined.
