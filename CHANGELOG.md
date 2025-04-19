@@ -1,5 +1,10 @@
 # Dryer Lint Change Log
 
+## 1.4 
+
+Use caching for each document to store the list of RuleSets. 
+This significantly improves performance for diagnostic refreshes.
+
 ## 1.3 
 
 - Add ability to toggle individual rule sets via inline comments.
