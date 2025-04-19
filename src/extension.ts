@@ -14,7 +14,6 @@ export function activate(context: vscode.ExtensionContext) {
     activateFixes(context);
     activateDiagnostics(context);
 
-
     context.subscriptions.push(vscode.commands.registerCommand('dryerLint.fixAllInActiveFile',  fixAllInActiveFile));
 
 }
@@ -42,6 +41,5 @@ export function error(message: string, withTrace: boolean = false) {
         outputChannel.appendLine(`ERROR [${new Date().toLocaleTimeString()}] ${message}\nStacktrace ${targetObject.stack}`);
     } else {
         outputChannel.appendLine(`ERROR [${new Date().toLocaleTimeString()}] ${message}`);
-        // outputChannel.
     }
 }    

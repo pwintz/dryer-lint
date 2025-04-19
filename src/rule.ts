@@ -4,7 +4,7 @@ import { escape, glob, globIterateSync, globSync, Path } from 'glob';
 import { cwd } from 'process';
 import path = require('path');
 import isGlob = require("is-glob");
-import { invalidateLastDocumentsRefreshVersions, RegexMatchDiagnostic } from './diagnostics';
+import { invalidateDocumentStatusCache, RegexMatchDiagnostic } from './diagnostics';
 
 // Define the name of the configurations used in the user's settings.json.
 export const ConfigSectionName: string = 'dryer-lint';
@@ -278,15 +278,17 @@ export default class Rule
         // Whenever the Dryer Lint configurations change, update the list of rules.
         vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration(ConfigSectionName)) {
-                // While we work on deprecating this, 
+                // While we work on deprecating this, we load the legacy rules.
                 RuleSet.loadLegacyRuleSet();
-                invalidateLastDocumentsRefreshVersions();
+                invalidateDocumentStatusCache();
+                dryerLintLog(`The setting "${ConfigSectionName}" changed. Reloading rules.`);
             }
         });
         vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration(RuleSetsConfigName)) {
+                dryerLintLog(`The setting "${RuleSetsConfigName}" changed. Reloading rules.`);
                 RuleSet.loadRules();
-                invalidateLastDocumentsRefreshVersions();
+                invalidateDocumentStatusCache();
             }
         });
 

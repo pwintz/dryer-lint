@@ -67,15 +67,6 @@ export class RegexMatchDiagnostic extends vscode.Diagnostic
     
 }
 
-const lastDocumentsRefreshVersions : { [key: string]: number } = {};
-
-// Clear our records of the 
-export function invalidateLastDocumentsRefreshVersions() {
-    Object.keys(lastDocumentsRefreshVersions).forEach(key => {
-        delete lastDocumentsRefreshVersions[key];
-    });
-}
-
 const diagnosticsCollections = vscode.languages.createDiagnosticCollection(DiagnosticCollectionName);
 
 export function getDiagnostics(document: vscode.TextDocument): RegexMatchDiagnostic[] {
@@ -104,7 +95,7 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event =>
             {
-                tryRefreshDiagnostics(event.document, diagnosticsCollections, " document changed");
+                tryRefreshDiagnostics(event.document, diagnosticsCollections, "document changed");
             })
     );  
 
@@ -113,6 +104,65 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
     if (vscode.window.activeTextEditor) {
         tryRefreshDiagnostics(vscode.window.activeTextEditor.document, diagnosticsCollections, "initial activation");
     }
+}
+
+class DocumentStatus {
+    // A data type for storing the status of a document, including the version number and the rule sets that are applied to it.
+    version: number;
+    ruleSets: RuleSet[] = []
+    uri: string
+    
+    constructor(document: vscode.TextDocument) {
+        this.uri = document.uri.toString()
+        this.version = document.version;
+        this.ruleSets = RuleSet.getMatchingRuleSets(document);
+    }
+}
+
+class DocumentStatusCache {
+    // A cache for storing the status of documents. The key is the document's URI and the value is a DocumentStatus object.
+    // This is used to avoid reloading the rule sets for a document if they have not changed.
+    private cache: { [uri: string]: DocumentStatus } = {};
+
+    isFresh(document: vscode.TextDocument): boolean {
+        return !this.isStale(document);
+    }
+
+    isStale(document: vscode.TextDocument): boolean {
+        const uri: string = document.uri.toString();
+        const cachedStatus: DocumentStatus | undefined = this.cache[uri];
+        if (cachedStatus === undefined) {
+            return true;
+        } else if (cachedStatus.version !== document.version) {
+            return true
+        } else {
+            return false;
+        }
+    }
+
+    getRuleSets(document: vscode.TextDocument): RuleSet[] {
+        // If the document is not in the cache, or if it is stale (the version number doesn't match the version in the cache), then put the document in the cache. 
+        // The return value is true if a cache entry was created or updated and false otherwise.
+        
+        const uri: string = document.uri.toString();
+        const cachedStatus: DocumentStatus | undefined = this.cache[uri];
+        if (cachedStatus === undefined) {
+            this.cache[uri] = new DocumentStatus(document)
+        } else if (cachedStatus.version !== document.version) {
+            this.cache[uri].version = document.version;
+        }
+        return this.cache[uri].ruleSets;
+    }
+
+    invalidate() {
+        this.cache = {}
+    }
+}
+
+const documentStatusCache = new DocumentStatusCache();
+
+export function invalidateDocumentStatusCache() {
+    documentStatusCache.invalidate();
 }
 
 function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollections: vscode.DiagnosticCollection, reason: string): void {
@@ -125,17 +175,14 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
         return;
     }
 
-    const docVersion = document.version;
-    if (lastDocumentsRefreshVersions[document.uri.toString()] === docVersion) {
+    if (documentStatusCache.isFresh(document)) {
         // If the document version has not changed, then don't update diagnostics.
         dryerLintLog(`Skipped refreshing diagnostics for "${docName}" because the document version has not changed.`);
         return;
     }
-    lastDocumentsRefreshVersions[document.uri.toString()] = docVersion;
 
-    dryerLintLog(`Refresing diagnostics for "${docName}" due to "${reason}".`);
-    
     try{
+        dryerLintLog(`Refresing diagnostics for "${docName}" due to "${reason}".`);
         refreshDiagnostics(document, diagnosticsCollections);
     } catch (error) {
         dryerLint.error(`There was an error while refreshing diagnostics: ${error}, ${Error().stack}`);
@@ -154,7 +201,8 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
 
     const start_time = Date.now();
 
-    const ruleSets: RuleSet[] = RuleSet.getMatchingRuleSets(document);
+    const ruleSets: RuleSet[] = documentStatusCache.getRuleSets(document);
+    dryerLintLog(`Time until getting matching rule sets: ${Date.now() - start_time}`)
 
     if (ruleSets?.length > 0) {
         dryerLintLog(`Refreshing diagnostics. Found ${ruleSets.length} rule sets for\n\t"${document.fileName}": [\n\t${ruleSets.join('\n\t')}\n]`);
@@ -172,6 +220,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
         diagnostics.set(document.uri, []);
         return;
     }
+    dryerLintLog(`Time until getting reduced rule sets: ${Date.now() - start_time}`)
 
 
     var commentChar = util.getLineCommentChar(document);
@@ -246,6 +295,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
             }
         }
     }
+    dryerLintLog(`Time until checking which rule sets are enabled at each line: ${Date.now() - start_time}`)
 
     const diagnosticList: RegexMatchDiagnostic[] = [];
 
@@ -291,6 +341,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
             dryerLintLog(`Checking rule took ${Date.now() - rule_start_time} ms: "${rule.name}"`);
         }// End of for-loop over "rules"
     }
+    dryerLintLog(`Time until checking all rule sets finished: ${Date.now() - start_time}`)
 
     // Display the time required to check in the log and status bar. 
     const run_time = Date.now() - start_time;
@@ -298,6 +349,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
     vscode.window.setStatusBarMessage(`Dryer Lint refresh: ${run_time} ms`, 2*1000);
 
     diagnostics.set(document.uri, diagnosticList);
+    dryerLintLog(`Time to refresh diagnostics finished: ${Date.now() - start_time}`)
 }
 
 function rangeFromMatch(
