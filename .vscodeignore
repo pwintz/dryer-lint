@@ -14,3 +14,6 @@ vsc-extension-quickstart.md
 **/*.xcf
 **/.vscode-test.*
 dryer-lint-test-workspace/
+
+test_*.tex
+test_*.txt
