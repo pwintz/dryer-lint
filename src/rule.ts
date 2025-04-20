@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
 import { dryerLintLog } from './extension';
-import { escape, glob, globIterateSync, globSync, Path } from 'glob';
-import { cwd } from 'process';
 import path = require('path');
+import { minimatch } from 'minimatch'
 import isGlob = require("is-glob");
 import { invalidateDocumentStatusCache, RegexMatchDiagnostic } from './diagnostics';
 
@@ -90,50 +89,8 @@ export class RuleSet {
         }
         const relativePathFromWorkspaceRoot = path.relative(workspaceFolder, filePath);
 
-//         dryerLintLog("Current working directory:" + cwd())
-//         dryerLintLog("glob working directory: " + workspaceFolder)
-//         dryerLintLog("glob pattern: " + this.glob)
-//         dryerLintLog("glob relativePathFromWorkspaceRoot: " + relativePathFromWorkspaceRoot)
-        // const globs = [this.glob, escape(relativePathFromWorkspaceRoot)];
-        // dryerLintLog(`glob array: [${globs}]`)
-        
-        // const ignoreAllButTargetFilePattern = `!(**/${path.basename(relativePathFromWorkspaceRoot)})`;
-        // dryerLintLog(`ignoreAllButTargetFilePattern: ${ignoreAllButTargetFilePattern}`)
-
-        const globResult:string[] = globSync(
-            this.glob,
-            { 
-                // Search relative to workspace root. 
-                cwd: workspaceFolder, 
-                // // Include .dot files in matches. Note that an explicit dot in a portion of the pattern will always match dot files. Without this option, files such as ".vscode/settings.json" would not be matched by "**/*.json" 
-                dot: true,      
-                // Only find files
-                nodir: true, 
-                //// Ignore everything except the file we are looking for.
-                // ignore: "!*.tex"
-                // ignore: [ignoreAllButTargetFilePattern, 
-                //         // Also ignore .git directories and their contents. 
-                //          "**/.git/**"]
-                ignore: {
-
-                    ignored: (p: Path) => {
-                        // dryerLintLog(`p: ${p.name}, ${p.isNamed("plaintext_dryer_lint_test.txt")}`)
-                        return !p.isNamed(path.basename(filePath));
-                    },
-                    childrenIgnored: (p: Path) => {
-                        return p.isNamed('.git') || p.isNamed('node_modules'); 
-                    }
-                },
-             }
-        );
-        const doesMatchGlob: boolean = globResult.includes(relativePathFromWorkspaceRoot);
-
-        if (globResult?.length > 0) {
-            dryerLintLog(`Results for glob="${this.glob}" in "${workspaceFolder}" for ${this}: [\n\t${globResult.join('\n\t')}\n]`);
-        } else {
-            dryerLintLog(`Found no files for glob="${this.glob}" in "${workspaceFolder}" for ${this}.`);
-        }
-        // dryerLintLog(`Is ${relativePathFromWorkspaceRoot} in globReults? ${doesMatchGlob}`)
+        // Check if the path to the file (relative to the root of the workspace) mathces the glob pattern.
+        const doesMatchGlob = minimatch(relativePathFromWorkspaceRoot, this.glob, {dot: true});
         return doesMatchGlob;
     }
 

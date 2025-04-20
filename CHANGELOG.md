@@ -1,5 +1,13 @@
 # Dryer Lint Change Log
 
+## 1.4.1 
+
+Significantly improve performance for finding the rule sets that match a given file. 
+Previously, we used a glob search to find all the files that matched each rule set's glob pattern, then checked if the current file was in it. 
+Now, instead, we simply check if the current file matches the pattern. 
+
+In informal testing, the time required to find the matching rule sets changed from nearly a second to <10 milliseconds.
+
 ## 1.4 
 
 Use caching for each document to store the list of RuleSets. 
