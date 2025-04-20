@@ -1,0 +1,405 @@
+// This file contains examples of Dryer Lint linting rules foro LaTeX documents. 
+// To use these rules, place them in settings.json. 
+{
+    "linting.dryer-lint.rules": [
+        {
+            // Check for syntax errors that will cause compilation errors.
+            "name": "latex compile error rules", 
+            "language": "latex",
+            "rules": [
+                {
+                    // Check for \cref{}, \cite{}, \ref{}, or \eqref{} occurring without arguments.
+                    // Updated 3/9/2025
+                    "name": "Empty Reference or Citation",
+                    "message": "Empty \\$1{}. (new rule)",
+                    "pattern": "\\\\(?<mygroup>cref|eqref|ref|cite)\\{\\s*\\}",
+                    "severity": "Error"
+                },
+                {
+                    // Regex101.com link: https://regex101.com/r/LvVMgp/2
+                    // See "Display Equation Environments Must Not Contain Empty Lines" for checking that \begin{equation}\end{equation} do not have empty lines.
+                    "name": "Display Equations Must Not Contain Empty Lines",
+                    "pattern": "\\\\\\[[ \\t]*\\r?\\n([ \\t]*(?!\\\\])\\S.*\\r?\\n)*([ \\t]*\\r?\\n)([ \\t]*((?!\\\\]).)*\\r?\\n)*\\\\\\]",
+                    "message": "Display equations must not contain empty lines.",
+                    "severity": "Error",
+                    "maxLines": 5
+                },
+                {
+                    // Updated "message" on 3/13/2025
+                    "name": "Display Equation Environments Must Not Contain Empty Lines",
+                    "pattern": "\\\\begin\\{(?<envname>equation[*]?|align[*]?)\\}[[ \\t]*\\r?\\n(?<nonemptylines>[ \\t]*(?!\\\\])\\S.*\\r?\\n)*(?<emptyline>[ \\t]*\\r?\\n)(?<remaininglines>[ \\t]*.*\\r?\\n)*?\\\\end\\{\\k<envname>\\}",
+                    "message": "\"$1\" environment must not contain empty lines.",
+                    "severity": "Error",
+                    "maxLines": 5
+                },
+                {
+                    // Check that \label{} does not contain a comma or a backslash.
+                    "name": "Illegal Character in \\label{}",
+                    "message": "\\label{...} must not contain \"$1\".",
+                    // Unescaped Regex: \\label\{[^\}]*[,\\][^\}]*\}
+                    "pattern": "\\\\label\\{[^\\}]*([\\\\,])[^\\}]*\\}",
+                    "severity": "Error"
+                }
+            ]
+        },
+        {
+            "name": "latex math rules",
+            "language": "latex",
+            "rules": [
+                {
+                    // This rule assumes that you write display equations using "\[...\]", which means that "$$" should never appear in your document.
+                    "name": "Inline equation with empty contents: \"$$\".",
+                    "pattern": "\\$\\$",
+                    "severity": "Error",
+                    "fix": "$ $",
+                    "message": "\"$$$$....$$$$\" should not be used. To insert a display equation, use \"\\[...\\]\"."
+                },
+                {
+                    "name": "Inline equation with empty contents: \"$ $\".",
+                    "pattern": "\\$[ ]+\\$",
+                    "severity": "Warning",
+                    "message": "Inline equation with empty contents: \"$ $\"."
+                },
+                {
+                    // placing an empty line after a display equation introduces a paragraph break. 
+                    // Link: https://regex101.com/r/qV4AwC
+                    "name": "Extra line after display equation",
+                    "pattern": "[^. \\t\\n\\r%]\\s*\\\\]\\s*\\r?\\n[ \\t]*\\r?\\n",
+                    "message": "Extra line after display equation.",
+                    "severity": "Warning",
+                    "maxLines": 3
+                },
+                {
+                    // Link: https://regex101.com/r/sAbuHm/latest
+                    // Unescaped: ^([^$\r\n]*(?<pairsofdollars>(?<!\\)[$][^$]+(?<!\\)[$])*(?:^|[ ])\$(?:.(?!(?<!\\)\$))*.(?<!\\)\$)(?<impermissibleFollowingChar>(?![ .,?~;:\-\)\}\]\{\r\n]|\\comment|\\foot))
+                    // Parts:
+                    //      "((?:(?<!\\\\)[$][^$]+(?<!\\\\)[$])*": Preceding "$...$" pairs.
+                    //      "((?:^|[ ])\$": Opening "$" preceded by a space.
+                    //      "(?:.(?!(?<!\\\\)\\$))+.": contents of equation. Anything except for "$" unless it is escaped ("\$").
+                    //      "(?<!\\)\$": Closing "$" (not escaped)
+                    //      "[^ .,?;:\n]": Anything except a space, punctuation, or linebreak.
+                    "name": "No space after in-line equation", 
+                    "pattern": "^([^$\\r\\n]*(?<pairsofdollars>(?<!\\\\)[$][^$]+(?<!\\\\)[$])*(?:^|[ ])\\$(?:.(?!(?<!\\\\)\\$))*.(?<!\\\\)\\$)(?<permissibleFollowingChar>(?![ .,?~;:\\-\\)\\}\\]\\{\\r\\n']|\\\\comment|\\\\foot))",
+                    "severity": "Warning", 
+                    "fix": "$1 $2",
+                    "message": "Missing space after \"$\" at end of in-line equation."
+                },
+                {
+                    // Link: https://regex101.com/r/OqaOVS/3
+                    // !!: This rule will miss cases where equations occur after \label or \url.
+                    "name": "Space between underscore and subscript contents.",
+                    "pattern": "^(?:(?!\\\\label\\{|\\\\url).)*\\S(?:_[ ]{1,2}|[ ]{1,2}_)",
+                    "message": "Space between underscore and subscript contents.",
+                    "severity": "Information"
+                },
+                {
+                    // Link: https://regex101.com/r/ulJSvK
+                    "name": "Suspicious subcript or superscript.",
+                    "pattern": "(?<equationopen>(?<!\\\\)\\$|\\\\\\[)(?:(?!\\\\label\\{|\\\\url|\\\\cref{).)*\\S(?<!\\\\)[_^][(,]",
+                    "message": "Suspicious subscript or superscript. Check for missing braces or expression.",
+                    "severity": "Information", 
+                    "maxLines": 2
+                },
+                {
+                    "name": "Missing subscript or superscript?",
+                    "pattern": "(?:\\s|^)([a-zA-Z0-9]+)\\{",
+                    "message": "Missing \"^\" or \"_\" after \"$1\"?",
+                    "severity": "Information"
+                },
+                {
+                    // Link: https://regex101.com/r/JA4zST/latest
+                    // Updated 2/19/25.
+                    "name": "Consequetive binary operators",
+                    // Check for consequetive "+", "-", "*", "/", "\cup", "\cap", "\bigcup", "\bigcap", or "\setminus" (excluding the case where "-" is second, in which case "-" is acting as a unary operator.) 
+                    "pattern": "(\\+|-|\\*|\\/|\\\\(?:big)?(?:cup|cap)|\\\\setminus)[ ]*\\&?[ ]*(\\+|\\*|\\/|\\\\(?:big)?(?:cup|cap)|\\\\setminus)(?<![cC]\\+\\+|http:\\/\\/|https:\\/\\/)", // "--" appears in text as a long dash, so it is not included. We need to check that we are in an equation first to check for repeated minus signs.
+                    "message": "Consecutive binary operators: \"$1\" and \"$2\".",
+                    "severity": "Warning",
+                },
+                {
+                    // Link: https://regex101.com/r/zROVuE/latest
+                    // updated 2/18/25
+                    "name": "Consecutive Binary Relations",
+                    "pattern": "^[^%\\r\\n]*(<|\\\\leq|:?=|\\\\geq|>|\\\\in\\b|\\\\subset)[ ]*&?[ ]*(<|\\\\leq|:?=|\\\\geq|>|\\\\in\\b|\\\\subset)",
+                    "message": "Consecutive binary relations: \"$1\" and \"$2\".",
+                    "severity": "Warning"
+                },
+                {
+                    // !! Favorite rule !!
+                    // https://regex101.com/r/zoEyIl/latest
+                    // Unescaped: (,|\+|-|\\cdot|\\times|\\cup|\\cap)\s*(?:\\dots|\\cdots|\\ldots|[.]{3})(?!\s*(?:\.|,|\+|-|\\cdot|\\times|\\cup|\\cap|\\?\}|\$|\\?\)|\\?\]|%|$))
+                    // Parts:
+                    // 1. A comma, plus, minus, \cdot, \times, \cup, or \cap.:  (,|\+|-|\\cdot|\\times|\\cup|\\cap)
+                    // 2. Ellipsis: (?:\\dots|\\cdots|\\ldots|[.]{3})
+                    // 3. Negative lookahead to check if the ellipsis is not followed by a ",", "+", "-", "\cdot", '$', ')', '\}
+                    // ', '\]' or end of string ("$" -- NOT end of line): (?:\.|,|\+|-|\\cdot|\\times|\\cup|\\cap|\\?\}|\$|\\?\)|\\?\]|$)
+                    // Updated 3/19 to include more binary operators and to handle line breaks and ignore more trailing patterns ("\]", "%", etc.).
+                    // Updated 3/9/2025
+                    "name": "Missing comma or binary operator after ellipsis", 
+                    "pattern": "(,|\\+|-|\\\\cdot|\\\\times|\\\\cup|\\\\cap)\\s*(?:\\\\dots|\\\\cdots|\\\\ldots|[.]{3})(?!\\s*(?:\\.|,|\\+|-|\\\\cdot|\\\\times|\\\\cup|\\\\cap|\\\\?\\}|\\$|\\\\?\\)|\\\\?\\]|%|$))",
+                    "message": "Missing \"$1\" (or other binary operator) after ellipsis.",
+                    "severity": "Warning",
+                    "maxLines": 2
+                },
+                {
+                    // Link: https://regex101.com/r/t9Ukf5/latest
+                    // Create 3/19/2025
+                    "name": "\\ldots after binary operators or relations", 
+                    "pattern": "(\\+|-|\\\\cdot|\\\\times|\\\\cup|\\\\cap|=|<|>|\\\\(?:leq|geq)|\\\\(?:sub|sup)set(?:eq)?)(\\s*)\\\\ldots",
+                    "message": "Use \"$1$2\\cdots\" instead of \"$1$2\\ldots\".",
+                    "severity": "Warning", 
+                    "fix": "$1$2\\cdots", 
+                    "maxLines": 2
+                },
+                {
+                    // Link: https://regex101.com/r/t9Ukf5/latest
+                    // Create 3/19/2025
+                    "name": "\\ldots before binary operators or relations", 
+                    "pattern": "\\\\ldots(\\s*)(\\+|-|\\\\cdot|\\\\times|\\\\cup|\\\\cap|=|<|>|\\\\(?:leq|geq)|\\\\(?:sub|sup)set(?:eq)?)",
+                    "message": "Use \"\\cdots$1$2\" instead of \"\\dots$1$2\".",
+                    "severity": "Warning", 
+                    "fix": "\\cdots$1$2",
+                    "maxLines": 2
+                },
+                {
+                    // Check for empty subscripts or superscripts, such as "t_{}" or "x^{ }".
+                    "name": "empty subscripts or superscripts",
+                    "pattern": "(?<!\\\\)(_|\\^)\\{[ ]*\\}", 
+                    "message": "empty subscripts or superscripts."
+                },
+                {
+                    "name": "Small cup/cap used for n-ary union/intersection",
+                    "pattern": "\\\\(cup|cap)[_^]",
+                    "message": "Use \\big$1 for n-ary operations.",
+                    "severity": "Information"
+                },
+                {
+                    // Link: https://regex101.com/r/QsDziM/latest
+                    // Match any single letter "l" that is not part of a word or wrapped in "\textsc{...}".
+                    "name": "\"l\" instead of \"\\ell\"",
+                    "pattern": "(?<![a-zA-Z]|\\\\textsc\\{)l(?=[ _\\r\\n]|\\W)",
+                    "message": "Avoid \"l\" as a symbol. Use \"\\ell\" instead.",
+                    "severity": "Warning",
+                    "fix": "\\ell"
+                },
+                {
+                    // Updated 3/9/2025
+                    "name": "Annotation over j should use \\jmath",
+                    "pattern": "\\\\(overline|dot|ddot|tilde|widetilde|bar|hat)(?:\\{([ij])\\}|[ ]+([ij]))",
+                    "message": "Use \\$1{\\$2math} instead of \\$1{$2}.",
+                    "fix": "\\$1{\\$2math}"
+                },
+                {
+                    "name": "Tranpose with ^T instead of ^\\top",
+                    "pattern": "\\^\\{?T\\}?", 
+                    "message": "Use \"\\trans\" instead of \"^T\" to denote transposes.",
+                    "fix": "\\trans"
+                },
+                {
+                    "name": "Space in \\mathrm{} is not rendered",
+                    "pattern": "\\\\mathrm\\{([^}\\r\\n]*[ ][^}\\r\\n]*)\\}",
+                    "message": "Space in \\mathrm{$1} is not rendered. Use \\text instead.",
+                    "severity": "Information"
+                },
+            ]
+        },
+        {
+            "name": "latex labels, references, and citations",
+            "language": "latex",  
+            "rules": [
+                {
+                    // Check that a comma-separated list of labels passed to \cref or \cite does have spaces after any commas.
+                    // Although a trailing space is permitted in labels, it would be better to revise the label by removing the space.
+                    // Updated 2/21/25.
+                    "name": "Label list has a space after a comma",
+                    "message": "The argument to \\$1{} has a comma followed by a space. This typically indicates an error because the space will be read as a part of the label.",
+                    "pattern": "(\\\\(?:cref|cite|ref))\\{([^\\}]*)\\,[ \\n\\r]([^\\}]*)\\}",
+                    "severity": "Warning", 
+                    "fix": "$1{$2,$3}", 
+                    "maxLines": 2
+                }, 
+                {
+                    // Check that \label{} shouldn't contain braces.
+                    "name": "Avoid \"{...}\" in \\label{}",
+                    "message": "Avoid using \"{\" and \"}\" in \\label{}, as LaTeX Workshop does not handle it well in Intellisense suggestions.",
+                    "pattern": "\\\\label\\{[^\\}]*{[^\\}]*\\}",
+                    "severity": "Warning"
+                },
+                {
+                    // Rule matches expressions that look like a label but do not occur inside \\cref{}.
+                    // For this rule to work, you must start your labels with one of the following prefixes: 
+                    //      "eq:"
+                    //      "def:"
+                    //      "item:"
+                    //      "result:"
+                    //      "example:"
+                    "name": "Missing \"\\cref\"", 
+                    "pattern": "[ ]{(?:result|eq|item|def|example):", 
+                    "message": "Missing \"\\cref\""
+                }, 
+                {
+                    "name": "\\cref without space before", 
+                    "pattern": "(?<!^|[ ~\\t({])\\\\cref", 
+                    "message": "Missing space before \\cref", 
+                    "severity": "Warning"
+                }, 
+                {
+                    "name": "\\ref instead of \\cref", 
+                    "pattern": "\\\\ref\\b",
+                    "message": "Use \\cref from the cleveref package instead of \\ref.", 
+                    "severity": "Information",
+                },
+                {
+                    // Note, this will not catch cases where \cref occurs after a sentence that ends in an equation, or in the first paragraph of a document.
+                    // Updated 3/9/2025. 
+                    "name": "\\cref instead of \\Cref at start of sentence", 
+                    "pattern": "(?:\\.|\\?|!)\\s+\\\\cref",
+                    "message": "Use \\Cref instead of \\cref at the start of sentences.",
+                    "maxLines": 4
+                },
+                // {
+                //     "name": "\\cref instead of \\Cref at start of sentence",
+                //     "pattern": "^[ \\t]*\\\\cref\\{",
+                //     "message": "Use \\Cref instead of \\cref at the start of sentence."
+                // }, 
+            ]
+        },
+        {
+            "name": "latex line breaking rules", 
+            "language": "latex",
+            "rules": [
+                {
+                    "name": "Missing non-breaking space before \\cite",
+                    "message": "Use \"~\" (non-breaking space) before `\\cite` to prevent awkward line breaks.",
+                    "pattern": "[ ]\\\\cite\\{",
+                    "severity": "Information",
+                    "fix": "~\\cite{"
+                },
+                {
+                    // Check for a space before the reference to an equation. 
+                    // This rule requires that you label all equations with a prefix "eq:".
+                    "name": "Missing non-breaking space before cleveref equation reference",
+                    "message": "Use \"~\" (non-breaking space) before referencing an equation to prevent awkward line breaks.",
+                    "pattern": "[ ]\\\\cref\\{eq:",
+                    "severity": "Information",
+                    "fix": "~\\cref{eq:"
+                },
+                {
+                    // Check for a space before the reference to an item. 
+                    // This rule requires that you label all equations with a prefix "item:".
+                    "name": "Missing non-breaking space before cleveref item reference",
+                    "message": "Use \"~\" (non-breaking space) before referencing an item to prevent awkward line breaks.",
+                    "pattern": "[ ]\\\\cref\\{item:",
+                    "severity": "Information",
+                    "fix": "~\\cref{item:"
+                },
+                {
+                    "name": "Missing non-breaking space before references",
+                    "pattern": "[ ]\\\\(eqref|ref)\\{",
+                    "message": "Use \"~\" (non-breaking space) before \"\\$1{}\" to prevent awkward line breaks before the inserted number.",
+                    "severity": "Information",
+                    "fix": "~\\$1{:"
+                },
+                {
+                    // Updated 2/20/25
+                    "name": "Missing non-breaking space in locator for \\cite[]",
+                    "pattern": "(\\\\cite\\[\\w*)[ ]+([^\\]]*\\])",
+                    "message": "Use \"$1~$2\" instead of \"$1 $2\" to avoid a bad line break.",
+                    "fix": "$1~$2"
+                },
+                {
+                    // TODO: This shows a false positive sometimes.
+                    "name": "Multiline equation environment has extra line at end",
+                    "pattern": "(?:\\\\){2}[ \\t]*\\r?\\n[ \\t]*\\\\end{(?:align[*]?|aligned|cases|autocases)}",
+                    "severity": "Warning", 
+                    "message": "Extra line break at the end of environment.",
+                    "maxLines": 2
+                },
+                {
+                    "name": "Use a nonbreaking space between a month and the date",
+                    "pattern": "((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.]?)[ ](\\d{1,2})",
+                    "message": "Use \"~\" between \"$1\" and \"$2\".", 
+                    "fix": "$1~$2", 
+                },
+                {
+                    "name": "Breaking space next to non-breaking space", 
+                    "pattern": "(?:~\\s|\\s~)",
+                    "message": "Ineffective non-breaking space because of adjacent breaking space.",
+                    "severity": "Warning",
+                },
+                {
+                    "name": "\\cite[]{...} without mbox",
+                    "pattern": "(?<!\\\\mbox\\{)\\\\cite\\[", 
+                    "message": "Use \\mbox to prevent a line break in this citation format.",
+                    "severity": "Hint"
+                }, 
+            ]
+        },
+        {
+            // A collection of rules for the changes package (https://ctan.org/pkg/changes).
+            // These rules highlight \added{}, \deleted{}, and \replaced{} commands, and provide fixes for automatically removing them, keeping only the post-change text.
+            "name": "Changes package rules", 
+            "language": "latex",
+            "rules": [
+                // CHANGES PACKAGE ANNOTATIONS
+                {
+                    // Updated 3/15/2025 to handle one level of nested "{}" within the argument, and to only match if \added occurs on the first line of the checked range (prevents duplicates).
+                    "name": "Added macro",
+                    // Unescaped: \\added\{([^{}}]*)\}
+                    "pattern": "\\\\added\\{([^{}]*([{][^{}]*[}])*[^{}]*)\\}",
+                    // "pattern": "^(.*)\\\\added\\{([^{}]*([{][^{}]*[}])*[^{}]*)\\}",
+                    "message": "Changes annotation: \\added{}",
+                    "severity": "Hint",
+                    "maxLines": 4,
+                    "fix": "$1$2"
+                },
+                {
+                    // Updated 3/15/2025 to ignore cases where "{}" occures in the argument.
+                    "name": "Deleted macro",
+                    // Unescaped macro: \\deleted\{[^{}]*([{][^{}]*[}])*[^{}]*\}
+                    "pattern": "\\\\deleted\\{[^{}]*([{][^{}]*[}])*[^{}]*\\}",
+                    "message": "Changes annotation: \\deleted",
+                    "severity": "Hint",
+                    "fix": ""
+                },
+                {
+                    // Updated 3/15/2025 to ignore cases where "{}" occures in the argument.
+                    "name": "Replaced macro",
+                    "pattern": "\\\\replaced\\{([^{}]*?([{][^{}]*?[}])*?[^{}]*?)\\}\\s*\\{[^{}]*?([{][^{}]*?[}])*?[^{}]*?\\}",
+                    "message": "Changes: \\replaced{$1}",
+                    "severity": "Warning", 
+                    "fix": "$1",
+                    "maxLines": 4
+                },
+                {
+                    // Link: https://regex101.com/r/20qLLq/1
+                    // Updated 3/6/2025 to exclude the contents of the environment because it was squashing other diagnostics that occur inside.
+                    "name": "Added Block Environment",
+                    "pattern": "^[ \\t]*\\\\(begin|end){addedblock}",
+                    "message": "Changes: \\$1{addedblock}",
+                    "severity": "Hint",
+                    // "fix": "$1",
+                    "maxLines": 1
+                },
+                {
+                    // Updated 3/6/2025 to exclude the contents of the environment because it was squashing other diagnostics that occur inside.
+                    // Updated 3/6/2025 to ignore if it appears in a comment by only matching if only white space occurs before "\begin{deletedblock}
+                    "name": "Deleted Block Environment",
+                    "pattern": "^[ \\t]*\\\\(begin|end){deletedblock}",
+                    "message": "Changes: \\$1{deletedblock}",
+                    "severity": "Hint",
+                    "fix": "",
+                    "maxLines": 1
+                },
+                // == Check for added or replaced blocks that start with equations, which will cause errors in 'final' mode when using onlyamsmath.
+                // https://tex.stackexchange.com/questions/738785/error-when-using-changes-package-with-amsmath-package-if-the-beginning-of-added
+                {
+                    "name": "\\added or \\replaced starting with equation",
+                    "pattern": "\\\\(added|replaced)\\{\\~?(\\$|\\\\\\[)", 
+                    "message": "\"\\$1\\{$2...\" will cause an error in final mode when using onlyamsmath package",
+                    "severity": "Error"
+                }
+            ]
+            
+        }
+    ]
+}
