@@ -86,7 +86,7 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
         vscode.window.onDidChangeActiveTextEditor(editor => {
             // 'editor' is the currently active editor or undefined. The active editor is the one that currently has focus or, when none has focus, the one that has changed input most recently.
             if (editor) { 
-                tryRefreshDiagnostics(editor.document, diagnosticsCollections, "the editor became active");
+                tryRefreshDiagnostics(editor, diagnosticsCollections, "the editor became active");
             }
         })
     );
@@ -165,7 +165,8 @@ export function invalidateDocumentStatusCache() {
     documentStatusCache.invalidate();
 }
 
-function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollections: vscode.DiagnosticCollection, reason: string): void {
+function tryRefreshDiagnostics(editor: vscode.TextEditor, diagnosticsCollections: vscode.DiagnosticCollection, reason: string): void {
+    const document: vscode.TextDocument = editor.document;
     const fileName = document.fileName;
     const docName = path.basename(fileName);
     if (fileName.startsWith('extension-output-') || fileName.startsWith(DryerLintLogName)) {
@@ -183,7 +184,7 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
 
     try{
         dryerLintLog(`Refresing diagnostics for "${docName}" due to "${reason}".`);
-        refreshDiagnostics(document, diagnosticsCollections);
+        refreshDiagnostics(editor, diagnosticsCollections);
     } catch (error) {
         dryerLint.error(`There was an error while refreshing diagnostics: ${error}, ${Error().stack}`);
         vscode.window.showErrorMessage(`There was an error while refreshing diagnostics: "${error}".`);
@@ -191,7 +192,8 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
     }
 }
 
-export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
+export function refreshDiagnostics(editor: vscode.TextEditor, diagnostics: vscode.DiagnosticCollection): void {
+    const document: vscode.TextDocument = editor.document;
     dryerLintLog(`refreshDiagnostics()`);
     // If the current document is not in the workspace, then don't update diagnostics.
     // ?? Are we not able apply linting to non-workspace documents? 
