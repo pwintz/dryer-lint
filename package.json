@@ -118,6 +118,11 @@
                                             "type": "boolean",
                                             "default": false,
                                             "description": "Enable case insensitive Regex matching, to ignore capitalization."
+                                        }, 
+                                        "ignoreWhitespace": {
+                                            "type": "boolean",
+                                            "default": false,
+                                            "description": "Ignore whitespace in the pattern."
                                         }
                                     }
                                 }
@@ -225,7 +230,8 @@
     "dependencies": {
         "@types/is-glob": "^4.0.3",
         "@types/vscode": "^1.98.0",
-        "minimatch": "^10.0.1"
+        "minimatch": "^10.0.1",
+        "regex": "^6.0.1"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",

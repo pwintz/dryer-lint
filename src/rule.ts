@@ -4,6 +4,7 @@ import path = require('path');
 import { minimatch } from 'minimatch'
 import isGlob = require("is-glob");
 import { invalidateDocumentStatusCache, RegexMatchDiagnostic } from './diagnostics';
+import {regex as regexPlus} from 'regex';
 
 // Define the name of the configurations used in the user's settings.json.
 export const ConfigSectionName: string = 'dryer-lint';
@@ -25,6 +26,7 @@ export type RuleConfig = {
     maxLines?: number,
     message: string,
     caseInsensitive: boolean,
+    ignoreWhitespace: boolean;
     severity?: Severity
 };
 
@@ -35,6 +37,7 @@ class RuleConfigDefault
     static MaxLines = 1;
     static CaseInsensitive = false;
     static Severity: Severity = 'Warning';
+    static IgnoreWhitespace: boolean = false;
 }
 
 export class RuleSet {
@@ -270,8 +273,9 @@ export default class Rule
         var name = ruleConfig.name;
         var message = ruleConfig.message || ruleConfig.name;
         var maxLines = ruleConfig.maxLines || RuleConfigDefault.MaxLines;
-        var pattern = ruleConfig.pattern;
+        var pattern: string = ruleConfig.pattern;
         var caseInsensitive = ruleConfig.caseInsensitive || RuleConfigDefault.CaseInsensitive;
+        var ignoreWhitespace = ruleConfig.ignoreWhitespace || RuleConfigDefault.IgnoreWhitespace;
         var severity = vscode.DiagnosticSeverity[ruleConfig.severity || RuleConfigDefault.Severity];
         var fix = ruleConfig.fix;
 
@@ -297,13 +301,22 @@ export default class Rule
             return undefined;
         }
 
+        // Set the RegEx flags.
+        // * g: Find all of the matches.
+        // * i: (Optional) Case insensitive.
+        var flags = caseInsensitive? `gmi` : `gm`;
         var regex: RegExp | undefined;
         try {
-            // Set the RegEx flags.
-            // * g: Find all of the matches.
-            // * i: (Optional) Case insensitive.
-            var flags = caseInsensitive? `gmi` : `gm`;
-            regex = new RegExp(pattern, flags);
+            // regex = new RegExp(pattern, flags);
+            regex = regexPlus({
+                flags: flags,
+                disable: {
+                    // The "x" flag causes whitespace to be ignored. The negation here is confusing, but it is correct.
+                    // When ignoreWhitespace is true, we want to not disable the "x" flag, so that whitespace is ignored.
+                    // Alternatively, when ignoreWhitespace is false, we disable the "x" flag, so that whitespace is not ignored (restoring the default JS Regular Expression behavior).
+                    x: !ignoreWhitespace, 
+                }
+            })`/${pattern}/`;
         } catch (error) {
             vscode.window.showErrorMessage(`Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".`);
             return undefined;
@@ -321,3 +334,4 @@ export default class Rule
     }
     
 }
+
