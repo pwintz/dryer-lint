@@ -20,7 +20,8 @@ suite('Extension Test Suite', () => {
 			name: 'name', 
 			pattern: 'pattern', 
 			message: 'message', 
-			caseInsensitive: false
+			caseInsensitive: false,
+			ignoreWhitespace: false
 		};
 		var rule = Rule.ruleConfigToRule(ruleConfig);
 		

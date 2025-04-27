@@ -118,11 +118,6 @@
                                             "type": "boolean",
                                             "default": false,
                                             "description": "Enable case insensitive Regex matching, to ignore capitalization."
-                                        }, 
-                                        "ignoreWhitespace": {
-                                            "type": "boolean",
-                                            "default": false,
-                                            "description": "Ignore whitespace in the pattern."
                                         }
                                     }
                                 }
@@ -172,9 +167,12 @@
                                         "description": "A concise name for the rule."
                                     },
                                     "pattern": {
-                                        "type": "string",
+                                        "type": [
+                                            "string",
+                                            "array"
+                                        ],
                                         "minLength": 1,
-                                        "description": "A regular expression pattern to match a rule violation."
+                                        "description": "A regular expression pattern to match a rule violation. The pattern can be split into entries of an array, allowing them to be typed on separate lines, for readability. All entries are concatenated without spaces."
                                     },
                                     "maxLines": {
                                         "type": "integer",
@@ -206,6 +204,11 @@
                                         "type": "boolean",
                                         "default": false,
                                         "description": "Enable case insensitive Regex matching, to ignore capitalization."
+                                    },
+                                    "ignoreWhitespace": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Ignore white space in the Regex pattern, allowing for more readability."
                                     }
                                 }
                             }

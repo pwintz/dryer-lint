@@ -4,7 +4,7 @@ import path = require('path');
 import { minimatch } from 'minimatch'
 import isGlob = require("is-glob");
 import { invalidateDocumentStatusCache, RegexMatchDiagnostic } from './diagnostics';
-import {regex as regexPlus} from 'regex';
+import {regex as regexPlus, pattern as patternPlus} from 'regex';
 
 // Define the name of the configurations used in the user's settings.json.
 export const ConfigSectionName: string = 'dryer-lint';
@@ -21,14 +21,23 @@ export type RuleSetConfig = {
 
 export type RuleConfig = {
     name: string,
-    pattern: string,
+    // The "pattern" option can be given as a single string or as an array of strings, allowing the pattern to be split between multiple lines. The entries of the array are concatenated together to form the final pattern.
+    pattern: string | string[],
     fix?: string,
     maxLines?: number,
     message: string,
     caseInsensitive: boolean,
     ignoreWhitespace: boolean;
-    severity?: Severity
+    severity?: Severity;
 };
+
+// Add a utility function to normalize the pattern.
+function normalizePatternConfig(pattern: string | string[]): string {
+    if (Array.isArray(pattern)) {
+        return pattern.join(''); // Join the array into a single string.
+    }
+    return pattern;
+}
 
 class RuleConfigDefault
 {
@@ -268,12 +277,11 @@ export default class Rule
             return undefined;
         }
 
-
         // Set the message to "name" if "message" is empty.
         var name = ruleConfig.name;
         var message = ruleConfig.message || ruleConfig.name;
         var maxLines = ruleConfig.maxLines || RuleConfigDefault.MaxLines;
-        var pattern: string = ruleConfig.pattern;
+        var pattern: string = normalizePatternConfig(ruleConfig.pattern);
         var caseInsensitive = ruleConfig.caseInsensitive || RuleConfigDefault.CaseInsensitive;
         var ignoreWhitespace = ruleConfig.ignoreWhitespace || RuleConfigDefault.IgnoreWhitespace;
         var severity = vscode.DiagnosticSeverity[ruleConfig.severity || RuleConfigDefault.Severity];
@@ -310,15 +318,23 @@ export default class Rule
             // regex = new RegExp(pattern, flags);
             regex = regexPlus({
                 flags: flags,
+                // Enabling "subclass" and disabling the "n" flag allows users to reference groups by the group number in messages and fixes.
+                subclass: true,
                 disable: {
                     // The "x" flag causes whitespace to be ignored. The negation here is confusing, but it is correct.
                     // When ignoreWhitespace is true, we want to not disable the "x" flag, so that whitespace is ignored.
                     // Alternatively, when ignoreWhitespace is false, we disable the "x" flag, so that whitespace is not ignored (restoring the default JS Regular Expression behavior).
                     x: !ignoreWhitespace, 
+                    // Disable the "named capture only" mode, which turns unnamed groups (…) into noncapturing groups. 
+                    // With this disabled, we can reference groups by numbers in replacement strings (e.g., "$1"), but we need to set "subclass: true" to prevent the 
+                    n: true
                 }
-            })`/${pattern}/`;
+            })({raw: [pattern]});
+            dryerLintLog(`Regex for "${ruleConfig.name}" is "${regex}".`);
         } catch (error) {
-            vscode.window.showErrorMessage(`Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".`);
+            const errorMsg: string = `Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".`;
+            dryerLintLog(errorMsg);
+            vscode.window.showErrorMessage(errorMsg);
             return undefined;
         }
 
