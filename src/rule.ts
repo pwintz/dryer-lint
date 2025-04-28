@@ -11,6 +11,10 @@ export const ConfigSectionName: string = 'dryer-lint';
 export const RuleSetsConfigName: string = 'dryerLint.ruleSets';
 
 export type Severity = keyof typeof vscode.DiagnosticSeverity;
+export enum RegexEngine {
+    LEGACY = "legacy", 
+    REGEX_PLUS = "regex+"
+}
 
 export type RuleSetConfig = {
     name: string, 
@@ -26,6 +30,7 @@ export type RuleConfig = {
     fix?: string,
     maxLines?: number,
     message: string,
+    regexEngine: RegexEngine,
     caseInsensitive: boolean,
     ignoreWhitespace: boolean;
     severity?: Severity;
@@ -44,9 +49,10 @@ class RuleConfigDefault
     // static Fix = '$&';
     static Language = 'plaintext';
     static MaxLines = 1;
+    static RegexEngine = RegexEngine.REGEX_PLUS;
     static CaseInsensitive = false;
-    static Severity: Severity = 'Warning';
     static IgnoreWhitespace: boolean = false;
+    static Severity: Severity = 'Warning';
 }
 
 export class RuleSet {
@@ -277,11 +283,12 @@ export default class Rule
             return undefined;
         }
 
-        // Set the message to "name" if "message" is empty.
         var name = ruleConfig.name;
+        // Set the message to "name" if "message" is empty.
         var message = ruleConfig.message || ruleConfig.name;
         var maxLines = ruleConfig.maxLines || RuleConfigDefault.MaxLines;
         var pattern: string = normalizePatternConfig(ruleConfig.pattern);
+        var regexEngine: RegexEngine = ruleConfig.regexEngine || RuleConfigDefault.RegexEngine;
         var caseInsensitive = ruleConfig.caseInsensitive || RuleConfigDefault.CaseInsensitive;
         var ignoreWhitespace = ruleConfig.ignoreWhitespace || RuleConfigDefault.IgnoreWhitespace;
         var severity = vscode.DiagnosticSeverity[ruleConfig.severity || RuleConfigDefault.Severity];
@@ -315,24 +322,32 @@ export default class Rule
         var flags = caseInsensitive? `gmi` : `gm`;
         var regex: RegExp | undefined;
         try {
-            // regex = new RegExp(pattern, flags);
-            regex = regexPlus({
-                flags: flags,
-                // Enabling "subclass" and disabling the "n" flag allows users to reference groups by the group number in messages and fixes.
-                subclass: true,
-                disable: {
-                    // The "x" flag causes whitespace to be ignored. The negation here is confusing, but it is correct.
-                    // When ignoreWhitespace is true, we want to not disable the "x" flag, so that whitespace is ignored.
-                    // Alternatively, when ignoreWhitespace is false, we disable the "x" flag, so that whitespace is not ignored (restoring the default JS Regular Expression behavior).
-                    x: !ignoreWhitespace, 
-                    // Disable the "named capture only" mode, which turns unnamed groups (…) into noncapturing groups. 
-                    // With this disabled, we can reference groups by numbers in replacement strings (e.g., "$1"), but we need to set "subclass: true" to prevent the 
-                    n: true
-                }
-            })({raw: [pattern]});
+            switch (regexEngine) {
+                case RegexEngine.LEGACY:
+                        regex = new RegExp(pattern, flags);
+                    break;
+                case RegexEngine.REGEX_PLUS:
+                    regex = regexPlus({
+                        flags: flags,
+                        // Enabling "subclass" and disabling the "n" flag allows users to reference groups by the group number in messages and fixes.
+                        subclass: true,
+                        disable: {
+                            // The "x" flag causes whitespace to be ignored. The negation here is confusing, but it is correct.
+                            // When ignoreWhitespace is true, we want to not disable the "x" flag, so that whitespace is ignored.
+                            // Alternatively, when ignoreWhitespace is false, we disable the "x" flag, so that whitespace is not ignored (restoring the default JS Regular Expression behavior).
+                            x: !ignoreWhitespace, 
+                            // Disable the "named capture only" mode, which turns unnamed groups (…) into noncapturing groups. 
+                            // With this disabled, we can reference groups by numbers in replacement strings (e.g., "$1"), but we need to set "subclass: true" to prevent the 
+                            n: true,
+                        }
+                    })({raw: [pattern]});
+                    break;
+                default:
+                    throw new Error(`Unexpected case: ${regexEngine}.`)
+            }
             dryerLintLog(`Regex for "${ruleConfig.name}" is "${regex}".`);
         } catch (error) {
-            const errorMsg: string = `Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".`;
+            const errorMsg: string = `Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".\nPattern: ${pattern}.`;
             dryerLintLog(errorMsg);
             vscode.window.showErrorMessage(errorMsg);
             return undefined;

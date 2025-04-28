@@ -4,7 +4,7 @@ import * as assert from 'assert';
 // as well as import your extension to test it
 import * as vscode from 'vscode';
 import * as dryer from '../extension';
-import Rule, {RuleConfig} from '../rule';
+import Rule, {RuleConfig, RegexEngine} from '../rule';
 
 
 suite('Extension Test Suite', () => {
@@ -20,6 +20,7 @@ suite('Extension Test Suite', () => {
 			name: 'name', 
 			pattern: 'pattern', 
 			message: 'message', 
+			regexEngine: RegexEngine.LEGACY,
 			caseInsensitive: false,
 			ignoreWhitespace: false
 		};
