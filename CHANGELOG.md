@@ -1,5 +1,14 @@
 # Dryer Lint Change Log
 
+## 2.0
+
+* Allow rules to be defined as an array of strings that are concatenated together, providing better readability.
+* Fix: Clear diagnostics when a file is closed, deleted, or renamed. 
+* Make `"message"` field optional in rules and use `"name"` field instead of `"message"` if `"message"` is missing.
+
+Breaking changes: 
+* Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which requires stricter syntax but expanded functionality. To restore the old engine, add `"regexEngine": "legacy"` to a rule.
+
 ## 1.4.1 
 
 Significantly improve performance for finding the rule sets that match a given file. 

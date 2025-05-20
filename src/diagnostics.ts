@@ -104,6 +104,32 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
     if (vscode.window.activeTextEditor) {
         tryRefreshDiagnostics(vscode.window.activeTextEditor.document, diagnosticsCollections, "initial activation");
     }
+
+    // Clear diagnostics when a file is closed
+    context.subscriptions.push(
+        vscode.workspace.onDidCloseTextDocument((document: vscode.TextDocument) => {
+            clearDiagnostics(document.uri, diagnosticsCollections);
+        })
+    )
+    
+    // Clear diagnostics when a file is deleted.
+    context.subscriptions.push(
+        vscode.workspace.onDidDeleteFiles((event: vscode.FileDeleteEvent) => {
+            event.files.forEach(uri => {
+                clearDiagnostics(uri, diagnosticsCollections);
+            });
+        })
+    )
+
+    // Clear diagnostics when a file is renamed.
+    context.subscriptions.push(
+        vscode.workspace.onDidRenameFiles((event: vscode.FileRenameEvent) => {
+            event.files.forEach(file => {
+                clearDiagnostics(file.oldUri, diagnosticsCollections);
+            });
+        })
+    )
+
 }
 
 class DocumentStatus {
@@ -189,6 +215,10 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
         vscode.window.showErrorMessage(`There was an error while refreshing diagnostics: "${error}".`);
         throw error;
     }
+}
+
+export function clearDiagnostics(uri: vscode.Uri, diagnosticsCollections: vscode.DiagnosticCollection) {
+    diagnosticsCollections.set(uri, []);  
 }
 
 export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
