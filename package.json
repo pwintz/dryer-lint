@@ -39,7 +39,7 @@
             }
         ],
         "configuration": {
-            "title": "dryerLint",
+            "title": "Dryer Lint",
             "properties": {
                 "dryerLint.ruleSets": {
                     "type": "array",

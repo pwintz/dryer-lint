@@ -5,9 +5,20 @@
 * Allow rules to be defined as an array of strings that are concatenated together, providing better readability.
 * Fix: Clear diagnostics when a file is closed, deleted, or renamed. 
 * Make `"message"` field optional in rules and use `"name"` field instead of `"message"` if `"message"` is missing.
+* Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which provides many new regex features, including  
+  * Possessive quantifiers (`"*+"`, `"++"`, and `"?"`) to block a quantifier from backtracking (or "returning characters"). Thus, `"a*+"` means
+  * Ignores white space in patterns and allows for comments. 
+  * Subroutines (using a group subpattern using `\g<groupname>`)
+  * Subroutine definition groups (i.e., using `(?(DEFINE) ... )`)
+  * Atomic groups to block backtracking to before the start of the group (can improve performance).
 
 Breaking changes: 
-* Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which requires stricter syntax but expanded functionality. To restore the old engine, add `"regexEngine": "legacy"` to a rule.
+* Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which requires stricter syntax but expanded functionality. To restore the old engine, add `"regexEngine": "legacy"` to a rule. 
+Examples of patterns that were previously OK but will fail with the new regex engine include:
+
+  * Unescaped `{` or `}`, except for when used as a quantifier. E.g., `\\text{Hello}` worked, previously, but now will cause an error. To compile with the stricter rules, change the pattern to `\\text\{Hello\}`.
+  * Similarly, "[" and "]" must be escaped as `\[` and `\]` unless used to match a character class, like `[abc]` or `[m-z]`.
+* White spaces in patterns are now ignored by default. To match a horizontal white space, use `[ \\t]`. To match any white space, use `\\s`
 
 ## 1.4.1 
 
@@ -19,7 +30,7 @@ In informal testing, the time required to find the matching rule sets changed fr
 
 ## 1.4 
 
-Use caching for each document to store the list of RuleSets. 
+Use caching for each document to store the list of `RuleSet`s. 
 This significantly improves performance for diagnostic refreshes.
 
 ## 1.3 
