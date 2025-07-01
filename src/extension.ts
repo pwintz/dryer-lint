@@ -15,7 +15,6 @@ export function activate(context: vscode.ExtensionContext) {
     activateDiagnostics(context);
 
     context.subscriptions.push(vscode.commands.registerCommand('dryerLint.fixAllInActiveFile',  fixAllInActiveFile));
-
 }
 
 export function deactivate() {

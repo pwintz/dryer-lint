@@ -2,7 +2,10 @@
 
 ## 2.0
 
-* Allow rules to be defined as an array of strings that are concatenated together, providing better readability.
+* Changed the data type for the list of rule sets and the list of rules within a rule set to be defined as a dictionary instead of an array. Arrays will still work (for now), but dictionaries come with nice advantages:
+  - VS Code will merge dictionaries from different settings files, so you define rules separately in User settings and workspace settings.
+  - Navigating a long dictionary is somewhat easier. If a rule or rule set is collapsed in the editor, then the key is still visible. Also, then keys are displayed in the VS Code "Outline" panel.
+* Allow a rule to be defined as an array of strings that are concatenated together, providing better readability.
 * Fix: Clear diagnostics when a file is closed, deleted, or renamed. 
 * Make `"message"` field optional in rules and use `"name"` field instead of `"message"` if `"message"` is missing.
 * Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which provides many new regex features, including  

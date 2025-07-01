@@ -42,8 +42,8 @@
             "title": "Dryer Lint",
             "properties": {
                 "dryerLint.ruleSets": {
-                    "type": "array",
-                    "description": "Contains a list of Dryer Lint rule sets for defining groups of linting rules in different languages.",
+                    "type": "object",
+                    "description": "Contains a dictionary of Dryer Lint rule sets for defining groups of linting rules in different languages.",
                     "items": {
                         "required": [
                             "name",
@@ -70,8 +70,8 @@
                                 "description": "A file glob to select which files to apply this rule set to."
                             },
                             "rules": {
-                                "type": "array",
-                                "description": "List of Dryer Lint rules.",
+                                "type": "object",
+                                "description": "Dictionary of Dryer Lint rules.",
                                 "items": {
                                     "required": [
                                         "name",

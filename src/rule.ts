@@ -20,7 +20,7 @@ export type RuleSetConfig = {
     name: string, 
     language: string[] | string, 
     glob: string, 
-    rules: RuleConfig[]
+    rules: RuleConfig[] | { [id: string] : RuleConfig; }
 }
 
 export type RuleConfig = {
@@ -67,7 +67,8 @@ export class RuleSet {
 
     constructor (name: string, languages: string | string[], glob: string, rules: Rule[]) {
         this._name = name;
-        // "languages" may be given as a single language or as multiple, so we convert it to an array if it is a single string.
+        // The "languages" option may be given as a single language or as multiple strings in an array. 
+        // We convert it to an array if it is a single string so that we can handle it in a single way.
         if (typeof languages === 'string') {
             this.languages = [languages];
         } else {
@@ -180,11 +181,30 @@ export class RuleSet {
         if (!dryerLintConfig.has("ruleSets")){
             throw new Error("The setting dryerLint.ruleSets was not found!");
         }
-        const ruleSetsConfigs: RuleSetConfig[] = dryerLintConfig.get<RuleSetConfig[]>("ruleSets") || [];
+        // const ruleSetsConfigs: RuleSetConfig[] = dryerLintConfig.get<RuleSetConfig[]>("ruleSets") || [];
         
-        if (ruleSetsConfigs.length == 0){
-            throw new Error("The setting dryerLint.ruleSets was empty!");
+        // Handle the rule set being given as either an array or dictionary. 
+        // We are moving away from arrays and prefer dictionaries, but we continue to support
+        // arrays for backward compatibility.
+        const ruleSetsConfigArrayOrDict = dryerLintConfig.get("ruleSets");
+        var ruleSetsConfigsArray: RuleSetConfig[] = [];
+        if (Array.isArray(ruleSetsConfigArrayOrDict)) {// If list of rule sets is given as an array...
+            ruleSetsConfigsArray = dryerLintConfig.get<RuleSetConfig[]>("ruleSets") || [];
+        } else {// If configuration is a dictionary...
+            const ruleSetsConfigsDict: { [id: string] : RuleSetConfig; } = dryerLintConfig.get<{ [id: string] : RuleSetConfig; }>("ruleSets") || {};
+            // Map the dictionary to an array, storing the name in the "name" property.
+            ruleSetsConfigsArray = Object.keys(ruleSetsConfigsDict).flatMap(
+                (name: string) => {
+                    // Set the name to the key given for the rule set.
+                    ruleSetsConfigsDict[name].name = name;
+                    return ruleSetsConfigsDict[name];
+                }
+            )
         }
+        
+        // if (ruleSetsConfigs.length == 0){
+        //     throw new Error("The setting dryerLint.ruleSets was empty!");
+        // }
 
         // !! Print statements for debugging.
         // dryerLintLog(`ruleSetsConfigs:`)
@@ -194,9 +214,30 @@ export class RuleSet {
         //     }
         // )
 
-        const ruleSets: RuleSet[] =  ruleSetsConfigs.flatMap(
+        const ruleSets: RuleSet[] =  ruleSetsConfigsArray.flatMap(
             (ruleSetConfig: RuleSetConfig) => {
-                const rules: Rule[] = ruleSetConfig.rules.flatMap(rule => Rule.ruleConfigToRule(rule) || [] );
+                var rules: Rule[];
+                if (Array.isArray(ruleSetConfig.rules)) {
+                    // Generate the array of rules from the array of RuleConfigs.
+                    rules = ruleSetConfig.rules.flatMap(rule => {
+                        return Rule.ruleConfigToRule(rule) || [];
+                    });
+                } else {
+                    // Cast to a dictionary.
+                    const ruleConfigsDict: {[name: string]: RuleConfig;} = ruleSetConfig.rules;
+                    
+                    // Generate an array of Rules from the dictionary of RuleConfigs.
+                    rules = Object.keys(ruleConfigsDict).flatMap(
+                        (name: string) => {
+                            rules
+                            const ruleConfig = ruleConfigsDict[name];
+                            // Set "name" property.
+                            ruleConfig.name = name;
+                            // Convert the RuleConfig to a Rule (or an empty element, if an error occurs)
+                            return Rule.ruleConfigToRule(ruleConfig) || [];
+                        }
+                    )
+                }
                 const glob: string = ruleSetConfig.glob || "**";
                 const ruleSet: RuleSet = new RuleSet(ruleSetConfig.name, ruleSetConfig.language, glob, rules);
                 dryerLintLog(`\t${ruleSet}`);
@@ -365,4 +406,3 @@ export default class Rule
     }
     
 }
-
