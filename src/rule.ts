@@ -151,13 +151,17 @@ export class RuleSet {
         return this.rules.filter(rule => rule.fix !== undefined);
     }
 
-    static getAllRules() {
-        return RuleSet.all.concat([RuleSet.legacyRuleSet]);
+    static getAllRules(): RuleSet[] {
+        if (RuleSet.legacyRuleSet == undefined) {
+            return RuleSet.all;
+        } else {
+            return RuleSet.all.concat([RuleSet.legacyRuleSet]);
+        }
     }
 
     public static getMatchingRuleSets(document: vscode.TextDocument): RuleSet[] {
         // While we are working on deprecating the old method of specifying rules, we include it into the set of rules we apply
-        const allRuleSetsIncludingLegacy = RuleSet.all.concat([RuleSet.legacyRuleSet]);
+        const allRuleSetsIncludingLegacy: RuleSet[] = RuleSet.getAllRules();
 
         const filteredRuleSets: RuleSet[] = allRuleSetsIncludingLegacy.filter(
             (ruleSet) => ruleSet.doesMatchDocument(document)
