@@ -394,3 +394,5 @@ vsce publish [major/minor/path]
 
 ### Development notes
 When change the "contributes"/"configuration" in `package.json`, you need to reload the VS Code window for IntelliCode to update its autocompletion in the `settings.json` file.
+
+To print trace and debug logging statements, you need to change the log from its default value ("Info"). To change the log level, select "Developer: Set Log Level..." from the command palette. 

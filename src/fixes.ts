@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
+import { logTrace, logDebug, logInfo, logWarn, logErrorMsg } from './extension';
 import { getDiagnostics, RegexMatchDiagnostic } from './diagnostics';
 import Rule, { ConfigSectionName, RuleSet, RuleSetsConfigName } from './rule';
-import { dryerLintLog } from './extension';
 import path = require('path');
 import { rangeToString } from './util';
 
@@ -29,7 +29,7 @@ export function fixAllInActiveFile(): void {
         (diagnostic) => diagnostic.hasFix
     );
             
-        dryerLintLog(`There are ${diagnostics.length} regex diagnostics in ${docName} with ${fixableDiagnostics.length} fixable.}`);
+        logInfo(`There are ${diagnostics.length} regex diagnostics in ${docName} with ${fixableDiagnostics.length} fixable.}`);
 
         // For each diagnostic in the selection that has a fix, create a quick action.
         const edits = generateTextEditFixes(fixableDiagnostics);
@@ -38,27 +38,26 @@ export function fixAllInActiveFile(): void {
             return; 
         }
         const nonOverlappingEdits = filterOverlappingEdits(edits);
-        dryerLintLog(`There are ${edits.length} edits to ${docName} for "Fix all" command with ${nonOverlappingEdits.length} non-overlapping.`);
+        logInfo(`There are ${edits.length} edits to ${docName} for "Fix all" command with ${nonOverlappingEdits.length} non-overlapping.`);
         
         const didEditSucceed: Thenable<boolean> = activeEditor.edit(editBuilder => {
             nonOverlappingEdits.forEach( 
                 (edit) => {
                     editBuilder.replace(edit.range, edit.newText);
                 });
-                dryerLintLog(`Built a TextEditorEdit from ${nonOverlappingEdits.length} edits.`);
+                logDebug(`Built a TextEditorEdit from ${nonOverlappingEdits.length} edits.`);
             }
         );
         
         didEditSucceed.then(
             (success) => { 
-                if (!success) {
+                if (!success) {// If failed
                     vscode.window.showErrorMessage(`Dryer Lint: Failed to apply ${nonOverlappingEdits.length}$ edits to ${path.basename(activeEditor.document.fileName)}.`);
                     
-                    dryerLintLog(`Failed to apply ${nonOverlappingEdits.length} edits for "Fix All" to ${docName}.`);
-                } else {
+                    logWarn(`Failed to apply ${nonOverlappingEdits.length} edits for "Fix All" to ${docName}.`);
+                } else {// If success
                     vscode.window.showInformationMessage(`Dryer Lint: Applied ${nonOverlappingEdits.length} edits.`);
-                    dryerLintLog(`Applied ${nonOverlappingEdits.length} edits to ${docName} for "Fix all" command.`);
-
+                    logInfo(`Applied ${nonOverlappingEdits.length} edits to ${docName} for "Fix all" command.`);
                 }
             }
         );
@@ -68,14 +67,13 @@ const codeActionProviderDisposables: vscode.Disposable[] = [];
 function refreshFixProviders(context: vscode.ExtensionContext){
     
     const refreshFixProviders_startTime = Date.now();
-    dryerLintLog(`====== Start refreshFixProviders(): context.subscriptions.length: ${context.subscriptions.length} ======`);
+    logInfo(`====== Start refreshFixProviders(): context.subscriptions.length: ${context.subscriptions.length} ======`);
     let codeActionProviderDisposable;
     while (codeActionProviderDisposable = codeActionProviderDisposables.pop()){
         var index = context.subscriptions.indexOf(codeActionProviderDisposable);
         context.subscriptions.splice(index);
         codeActionProviderDisposable.dispose();
     }
-    dryerLintLog(`After popping: context.subscriptions.length: ${context.subscriptions.length}`);
 
     const ruleSets: RuleSet[] = RuleSet.getAllRules();
     const actionProviderDisposables = ruleSets.flatMap(
@@ -102,10 +100,10 @@ function refreshFixProviders(context: vscode.ExtensionContext){
            ];
         }
     );
-    dryerLintLog(`Created ${actionProviderDisposables.length} code action providers in ${Date.now() - refreshFixProviders_startTime} ms.`);
+    logDebug(`Created ${actionProviderDisposables.length} code action providers in ${Date.now() - refreshFixProviders_startTime} ms.`);
 
     codeActionProviderDisposables.push(...actionProviderDisposables);
-    dryerLintLog(`After pushing: context.subscriptions.length: ${context.subscriptions.length}`);
+    logTrace(`After pushing: context.subscriptions.length: ${context.subscriptions.length}`);
 }
 
 class SingleFixProvider implements vscode.CodeActionProvider
@@ -121,7 +119,7 @@ class SingleFixProvider implements vscode.CodeActionProvider
         context: vscode.CodeActionContext
     ): vscode.CodeAction[] {
         const start_time = Date.now();
-        dryerLintLog(`===== Start of SingleFixProvider.provideCodeActions() for ${this.ruleSet} =====`);
+        logTrace(`===== Start of SingleFixProvider.provideCodeActions() for ${this.ruleSet} =====`);
 
         if (!this.ruleSet.doesMatchDocument(document)) {
             return [];
@@ -133,7 +131,7 @@ class SingleFixProvider implements vscode.CodeActionProvider
             
         var regexDiagnostics = <RegexMatchDiagnostic[]> context.diagnostics.filter(
                                             diagnostic => diagnostic instanceof RegexMatchDiagnostic
-         );
+        );
         var regexDiagnosticsInSelection = regexDiagnostics.filter(
             (diagnostic) => diagnostic.range.intersection(selection_range) !== undefined
         );
@@ -143,12 +141,12 @@ class SingleFixProvider implements vscode.CodeActionProvider
             }
         );
           
-        dryerLintLog(`There are ${regexDiagnostics.length} regex diagnostics with ${regexDiagnosticsInSelection.length} in the selection, and ${fixableRegexDiagnostics.length} fixable in the selection for ${this.ruleSet}.}`);
-        dryerLintLog(`regexDiagnostics: [\n\t${regexDiagnostics.join('\n\t')}\n]\nregexDiagnosticsInSelection: [\n\t${regexDiagnosticsInSelection.join('\n\t')}\n]\nfixableRegexDiagnostics: [\n\t${fixableRegexDiagnostics.join('\n\t')}\n]\n`);
+        logTrace(`SingleFixProvider: There are ${regexDiagnostics.length} regex diagnostics with ${regexDiagnosticsInSelection.length} in the selection, and ${fixableRegexDiagnostics.length} fixable in the selection for ${this.ruleSet}.}`);
+        logTrace(`regexDiagnostics: [\n\t${regexDiagnostics.join('\n\t')}\n]\nregexDiagnosticsInSelection: [\n\t${regexDiagnosticsInSelection.join('\n\t')}\n]\nfixableRegexDiagnostics: [\n\t${fixableRegexDiagnostics.join('\n\t')}\n]\n`);
         
         if (fixableRegexDiagnostics.length === 0) {
             // No relevant diagnostics found.
-            dryerLintLog('No fixable diagnostics found in selection.');
+            logTrace('No fixable diagnostics found in selection.');
             
             refreshStatusDisposable.dispose();
             return [];
@@ -160,7 +158,7 @@ class SingleFixProvider implements vscode.CodeActionProvider
                 // selection_range.
                 const edits = generateTextEditFixes([diagnostic]);
                 if (edits.length === 0) { 
-                    dryerLintLog(`No edits for ${diagnostic.message}.`);
+                    logTrace(`No edits for ${diagnostic.message}.`);
                     return []; 
                 }
 
@@ -170,13 +168,13 @@ class SingleFixProvider implements vscode.CodeActionProvider
                 action.edit = new vscode.WorkspaceEdit();
                 action.edit.set(document.uri, edits);
                 action.isPreferred = true;
-                dryerLintLog(`Created an action "${action.title}" for "${diagnostic.message}".`);
+                logTrace(`Created an action "${action.title}" for "${diagnostic.message}".`);
                 return action;
             }
         );
         const run_time = Date.now() - start_time;
         if (actions) {
-            dryerLintLog(`Created list of ${actions.length} fix CodeAction in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n].`);
+            logDebug(`Created list of ${actions.length} fix CodeAction in ${run_time} ms for ${this.ruleSet}: [${actions?.flatMap(action => "\n\t" + action.title)}\n].`);
         }
         refreshStatusDisposable.dispose();
         return actions;
@@ -196,10 +194,13 @@ class FixAllProvider implements vscode.CodeActionProvider
         context: vscode.CodeActionContext
     ): vscode.CodeAction[] {
         const start_time = Date.now();
-        dryerLintLog(`===== Start of FixAllProvider.provideCodeActions() for ${this.ruleSet} =====`);
+        logTrace(`===== Start of FixAllProvider.provideCodeActions() for ${this.ruleSet} =====`);
 
-        if (!this.ruleSet.doesMatchDocument(document)) {
-            dryerLintLog(`The document "${path.basename(document.fileName)}" does not match this rule set: ${this.ruleSet}`);
+        if (this.ruleSet.doesMatchDocument(document)) {
+            logDebug(`The document "${path.basename(document.fileName)}" matches ${this.ruleSet}`);
+        }
+        else {
+            logDebug(`The document "${path.basename(document.fileName)}" does not match ${this.ruleSet}`);
             return [];
         }
         const refreshStatusDisposable = vscode.window.setStatusBarMessage(`Refreshing fix-all for "${this.ruleSet.name}"`, 60*1000);
@@ -218,15 +219,15 @@ class FixAllProvider implements vscode.CodeActionProvider
             
         // Print a message for debugging.
         fixableRegexDiagnostics.forEach(
-            (diagnostic) => dryerLintLog(`A diagnostic is active at the selected text: ${diagnostic}`)
+            (diagnostic) => logTrace(`A diagnostic is active at the selected text: ${diagnostic}`)
         );
 
-        dryerLintLog(`There are ${regexDiagnostics.length} regex diagnostics with ${regexDiagnosticsInSelection.length} in the selection, and ${fixableRegexDiagnostics.length} fixable in the selection for ${this.ruleSet}.}`);
-        dryerLintLog(`regexDiagnostics: [\n\t${regexDiagnostics.join('\n\t')}\n]\nregexDiagnosticsInSelection: [\n\t${regexDiagnosticsInSelection.join('\n\t')}\n]\nfixableRegexDiagnostics: [\n\t${fixableRegexDiagnostics.join('\n\t')}\n]\n`);
+        logTrace(`FixAllProvider: There are ${regexDiagnostics.length} regex diagnostics with ${regexDiagnosticsInSelection.length} in the selection, and ${fixableRegexDiagnostics.length} fixable in the selection for ${this.ruleSet}.}`);
+        logTrace(`regexDiagnostics: [\n\t${regexDiagnostics.join('\n\t')}\n]\nregexDiagnosticsInSelection: [\n\t${regexDiagnosticsInSelection.join('\n\t')}\n]\nfixableRegexDiagnostics: [\n\t${fixableRegexDiagnostics.join('\n\t')}\n]\n`);
 
         if (fixableRegexDiagnostics.length === 0) {
             // No relevant diagnostics found.
-            dryerLintLog('No fixable diagnostics found in selection.');
+            logTrace('No fixable diagnostics found in selection.');
             refreshStatusDisposable.dispose();
             return [];
         }
@@ -236,7 +237,7 @@ class FixAllProvider implements vscode.CodeActionProvider
                                                                 (diagnostic) => diagnostic.rule
                                                             );
         // Remove non-unique values
-        var fixablesRules = [...new Set(fixablesRules)];
+        var fixablesRules: Rule[] = [...new Set(fixablesRules)];
 
         // Create one "Fix All" action for each rule.
         var n_rulesWithOnlyOneEdit = 0;
@@ -254,13 +255,13 @@ class FixAllProvider implements vscode.CodeActionProvider
                 if (nonOverlappingEdits.length < 2) {
                     if (nonOverlappingEdits.length === 1) {
                         n_rulesWithOnlyOneEdit++ ;
-                        dryerLintLog(`Not creating a "Fix All" action for ${rule} because there was only 1 non-overlapping edit out of ${edits.length} total.`);
+                        logTrace(`Not creating a "Fix All" action for ${rule} because there was only 1 non-overlapping edit out of ${edits.length} total.`);
                     }
                     refreshStatusDisposable.dispose();
                     return [];
                 }
 
-                dryerLintLog(`Created list of ${edits.length} edits for "Fix All" actions for ${rule}: [${edits.flatMap(
+                logTrace(`Created list of ${edits.length} edits for "Fix All" actions for ${rule}: [${edits.flatMap(
                         edit => "\n\t" + rangeToString(edit.range) + ": " + edit.newText 
                     )},\n], which was reduced to a list of ${nonOverlappingEdits.length} non-overlapping edits for "Fix All" action: [${nonOverlappingEdits.flatMap(
                         edit => "\n\t" + rangeToString(edit.range) + ": " + edit.newText 
@@ -272,7 +273,7 @@ class FixAllProvider implements vscode.CodeActionProvider
                 } else {
                     var actionLabel: string =`Fix all (x${edits.length}): "${rule.name}" (Dryer Lint)`;
                 }
-                const quickFixAllAction = new vscode.CodeAction(actionLabel, vscode.CodeActionKind.QuickFix);
+                const quickFixAllAction = new MultipleCodeAction(actionLabel, vscode.CodeActionKind.QuickFix, nonOverlappingEdits.length);
                 quickFixAllAction.edit = new vscode.WorkspaceEdit();
                 quickFixAllAction.edit.set(document.uri, nonOverlappingEdits);
                 
@@ -282,7 +283,7 @@ class FixAllProvider implements vscode.CodeActionProvider
         );
 
         const run_time = Date.now() - start_time;
-        dryerLintLog(`Created ${actions.length} "Fix All" actions for ${this.ruleSet} in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n]. Skipped ${n_rulesWithOnlyOneEdit} rules that had only 1 edit.`);
+        logDebug(`Created ${actions.length} "Fix All" actions for ${this.ruleSet} in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n]. Skipped ${n_rulesWithOnlyOneEdit} rules that had only 1 edit.`);
         return actions;
     }
 }

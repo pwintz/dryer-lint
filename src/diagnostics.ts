@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import Rule, { RuleSet } from './rule';
 import * as util from './util';
-import { dryerLintLog } from './extension';
+import { logTrace, logDebug, logInfo, logWarn, logErrorMsg, logErrorObj } from './extension';
 import * as dryerLint from './extension';
 import path = require('path');
 
@@ -93,8 +93,7 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
          
     // Update the diagnostics whenever the text of a document changes.
     context.subscriptions.push(
-        vscode.workspace.onDidChangeTextDocument(event =>
-            {
+        vscode.workspace.onDidChangeTextDocument(event => {
                 tryRefreshDiagnostics(event.document, diagnosticsCollections, "document changed");
             })
     );  
@@ -198,22 +197,23 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
         // Surprisingly, onDidChangeTextDocument is triggered with the extension output panel changes. 
         // This creates an infinite loop if we print anything to the consoue during refreshDiagnostics (spoiler: we do). 
         // This if/return block stops this from happening.
+        // !! WARNING: DO NOT PUT ANY PRINT STATEMENTS IN THIS IF-BLOCK.
         return;
     }
 
     if (documentStatusCache.isFresh(document)) {
         // If the document version has not changed, then don't update diagnostics.
-        dryerLintLog(`Skipped refreshing diagnostics for "${docName}" because the document version has not changed.`);
+        logInfo(`Skipped refreshing diagnostics for "${docName}" because the document version has not changed. The refresh was triggered by ${reason}.`);
         return;
     }
 
     try{
-        dryerLintLog(`Refresing diagnostics for "${docName}" due to "${reason}".`);
+        logInfo(`Refresing diagnostics for "${docName}" due to "${reason}".`);
         refreshDiagnostics(document, diagnosticsCollections);
-    } catch (error) {
-        dryerLint.error(`There was an error while refreshing diagnostics: ${error}, ${Error().stack}`);
-        vscode.window.showErrorMessage(`There was an error while refreshing diagnostics: "${error}".`);
-        throw error;
+    } catch (err) {
+        logErrorObj(`There was an error while refreshing diagnostics`, err);
+        vscode.window.showErrorMessage(`There was an error while refreshing diagnostics: "${err}".`);
+        // throw error;
     }
 }
 
@@ -222,7 +222,7 @@ export function clearDiagnostics(uri: vscode.Uri, diagnosticsCollections: vscode
 }
 
 export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
-    dryerLintLog(`refreshDiagnostics()`);
+    logTrace(`Start of refreshDiagnostics() with document: ${document} and ${diagnostics}`);
     // If the current document is not in the workspace, then don't update diagnostics.
     // ?? Are we not able apply linting to non-workspace documents? 
     if (!vscode.workspace.getWorkspaceFolder(document.uri)) {
@@ -232,12 +232,12 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
     const start_time = Date.now();
 
     const ruleSets: RuleSet[] = documentStatusCache.getRuleSets(document);
-    dryerLintLog(`Time until getting matching rule sets: ${Date.now() - start_time}`)
+    logDebug(`Time from start of refreshDiagnostics until getting matching rule sets: ${Date.now() - start_time}`)
 
     if (ruleSets?.length > 0) {
-        dryerLintLog(`Refreshing diagnostics. Found ${ruleSets.length} rule sets for\n\t"${document.fileName}": [\n\t${ruleSets.join('\n\t')}\n]`);
+        logInfo(`Refreshing diagnostics. Found ${ruleSets.length} rule sets for\n\t"${document.fileName}": [\n\t${ruleSets.join('\n\t')}\n]`);
     } else {
-        dryerLintLog(`No Dryer Lint rule sets found for "${document.fileName}", which has language=${document.languageId}. No diagnostics will be generated.`);
+        logInfo(`No Dryer Lint rule sets found for "${document.fileName}", which has language="${document.languageId}". No diagnostics will be generated.`);
         diagnostics.set(document.uri, []);
         return;
     }
@@ -246,12 +246,11 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
     // const rules: Rule[] = ruleSets.flatMap(ruleSet => ruleSet.rules);
     const n_rules = ruleSets.reduce((count, ruleSet) => count + ruleSet.rules.length, 0);
     if (n_rules === 0) {
-        dryerLintLog(`No Dryer Lint rules found in the rule sets [${ruleSets}]. No diagnostics will be generated.`);
+        logInfo(`No Dryer Lint rules found in the rule sets [${ruleSets}]. No diagnostics will be generated.`);
         diagnostics.set(document.uri, []);
         return;
     }
-    dryerLintLog(`Time until getting reduced rule sets: ${Date.now() - start_time}`)
-
+    logDebug(`Time from start of refreshDiagnostics until getting reduced rule sets: ${Date.now() - start_time}`)
 
     var commentChar = util.getLineCommentChar(document);
     if (!commentChar) {
@@ -312,20 +311,20 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
             const ruleSetId: string | undefined = commentConfigMatch.groups.ruleSetId;
             if (ruleSetId === undefined) {
                 dryerLintEnabledLines[line] = enable;
-                dryerLintLog(`Set dryerLintEnabledLines[line=${line+1}]=${enable} in \"${document.fileName}\" because of comment config "${commentConfigMatch.groups.config}".`);
+                logDebug(`Set dryerLintEnabledLines[line=${line+1}]=${enable} in \"${document.fileName}\" because of comment config "${commentConfigMatch.groups.config}".`);
 
             } else if (ruleSetsEnabledLines[ruleSetId] !== undefined) {
                 ruleSetsEnabledLines[ruleSetId][line] = enable;
-                dryerLintLog(`Set ruleSetsEnabledLines[${ruleSetId}][line=${line+1}]=${enable} in \"${document.fileName}\" because of comment config "${commentConfigMatch.groups.config}".`);
+                logDebug(`Set ruleSetsEnabledLines[${ruleSetId}][line=${line+1}]=${enable} in \"${document.fileName}\" because of comment config "${commentConfigMatch.groups.config}".`);
             } else {
                 vscode.window.setStatusBarMessage(`Invalid RuleSetId "${ruleSetId}" in \"${path.basename(document.fileName)}\" at line=${line}.`, 15 * 1000);
                 
-                dryerLintLog(`Dryer Lint: Invalid RuleSetId in Config Comment in \"${document.fileName}\" at line=${line}: "${ruleSetId}" was not found amoung the rule sets [\"${ruleSets.map(ruleSet => ruleSet.name).join("\", \"")}\"].`);
+                logWarn(`Dryer Lint: Invalid RuleSetId in Config Comment in \"${document.fileName}\" at line=${line}: "${ruleSetId}" was not found amoung the rule sets [\"${ruleSets.map(ruleSet => ruleSet.name).join("\", \"")}\"].`);
                 continue;
             }
         }
     }
-    dryerLintLog(`Time until checking which rule sets are enabled at each line: ${Date.now() - start_time}`)
+    logDebug(`Time from start of refreshDiagnostics until checking which rule sets are enabled at each line: ${Date.now() - start_time}`)
 
     const diagnosticList: RegexMatchDiagnostic[] = [];
 
@@ -357,29 +356,29 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
                     const range = rangeFromMatch(document, textRange, array);
                     if (range.start.line > line) {
                         // If the match starts on the next line, then don't create a diagnostic -- leave it for when the next line is processed
-                        dryerLintLog(`Skipped the match "${array[0]}" for ${rule} because it starts after the current line (${range.start.line}>${line})`);
+                        logTrace(`Skipped the match "${array[0]}" for ${rule} because it starts after the current line (${range.start.line}>${line})`);
                         // Using "break" here causes us to miss matches. Maybe because the results of rule.regex.exec are not sorted?
                         continue;
                     } else {
-                        dryerLintLog(`Matched ${rule} with "${array[0]}" (index=${array.index}) starting on line=${range.start.line}`);
+                        logTrace(`Matched ${rule} with "${array[0]}" (index=${array.index}) starting on line=${range.start.line}`);
                     }
                     const regexDiagnostic = new RegexMatchDiagnostic(rule, array, document, range);
                     diagnosticList.push(regexDiagnostic);
                 }
             }
             
-            dryerLintLog(`Checking rule took ${Date.now() - rule_start_time} ms: "${rule.name}"`);
+            logDebug(`Checking rule took ${Date.now() - rule_start_time} ms: "${rule.name}"`);
         }// End of for-loop over "rules"
     }
-    dryerLintLog(`Time until checking all rule sets finished: ${Date.now() - start_time}`)
+    logDebug(`Time until checking all rule sets finished: ${Date.now() - start_time}`)
 
     // Display the time required to check in the log and status bar. 
     const run_time = Date.now() - start_time;
-    dryerLintLog(`Finished refreshing Dryer Lint diagnostics in ${run_time} ms for ${n_rules} rules from ${ruleSets.length} RuleSets applied to ${document.lineCount} lines in\n${document.fileName}.`);
-    vscode.window.setStatusBarMessage(`Dryer Lint refresh: ${run_time} ms`, 2*1000);
-
+    
     diagnostics.set(document.uri, diagnosticList);
-    dryerLintLog(`Time to refresh diagnostics finished: ${Date.now() - start_time}`)
+    logInfo(`Refresed diagnostics. Found ${diagnosticList.length} diagnostics in ${run_time} ms for ${n_rules} rules from ${ruleSets.length} RuleSets applied to ${document.lineCount} lines in\n${document.fileName}.`);
+    vscode.window.setStatusBarMessage(`Dryer Lint refresh: ${run_time} ms`, 2*1000);
+    logInfo(`Time to refresh diagnostics: ${Date.now() - start_time} ms.`)
 }
 
 function rangeFromMatch(

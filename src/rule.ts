@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { dryerLintLog } from './extension';
+import { logTrace, logDebug, logInfo, logWarn, logErrorMsg, logErrorObj } from './extension';
 import path = require('path');
 import { minimatch } from 'minimatch'
 import isGlob = require("is-glob");
@@ -80,10 +80,11 @@ export class RuleSet {
         // Check that the glob are OK.
         if (this.glob){
             if(!isGlob(glob)) {
+                logWarn(`${this._name} had a bad glob pattern: ${glob}`);
                 vscode.window.showErrorMessage(`${this._name} had a bad glob pattern: ${glob}`);
             }
         } else {
-            dryerLintLog(`No glob found for ${this}.`);
+            logInfo(`No glob found for ${this}.`);
         }
     }
 
@@ -140,7 +141,7 @@ export class RuleSet {
         // Print a message for debugging.
         fixableDiagnostics.forEach(
             (diagnostic) => {
-                dryerLintLog(`A diagnostic is active at the selected text: ${diagnostic}`);
+                logDebug(`A diagnostic is active at the selected text: ${diagnostic}`);
             }
         );
         return fixableDiagnostics;
@@ -161,7 +162,7 @@ export class RuleSet {
         const filteredRuleSets: RuleSet[] = allRuleSetsIncludingLegacy.filter(
             (ruleSet) => ruleSet.doesMatchDocument(document)
         );
-        dryerLintLog(`getMatchingRuleSets() Found ${filteredRuleSets.length} ruleSets matching "${path.basename(document.fileName)}".`);
+        logInfo(`getMatchingRuleSets() Found ${filteredRuleSets.length} ruleSets matching "${path.basename(document.fileName)}".`);
         return filteredRuleSets;
     }
 
@@ -171,17 +172,20 @@ export class RuleSet {
     }
 
     static loadRules(): void {
-        RuleSet.all = RuleSet.getRules();
+        try{
+            RuleSet.all = RuleSet.getRules();
+        } catch (e) {
+            logErrorObj(`loadRules() failed.`, e)
+        }
     }
     
     static getRules(): RuleSet[] {
-        dryerLintLog(`Reading list of RulesSets from settings.`);
+        logInfo(`Reading list of RulesSets from settings.`);
         const dryerLintConfig: vscode.WorkspaceConfiguration  = vscode.workspace.getConfiguration("dryerLint");
         
         if (!dryerLintConfig.has("ruleSets")){
-            throw new Error("The setting dryerLint.ruleSets was not found!");
+            throw new Error(`No "dryerLint.ruleSets" setting was not found!`);
         }
-        // const ruleSetsConfigs: RuleSetConfig[] = dryerLintConfig.get<RuleSetConfig[]>("ruleSets") || [];
         
         // Handle the rule set being given as either an array or dictionary. 
         // We are moving away from arrays and prefer dictionaries, but we continue to support
@@ -240,11 +244,11 @@ export class RuleSet {
                 }
                 const glob: string = ruleSetConfig.glob || "**";
                 const ruleSet: RuleSet = new RuleSet(ruleSetConfig.name, ruleSetConfig.language, glob, rules);
-                dryerLintLog(`\t${ruleSet}`);
+                logDebug(`\t${ruleSet}`);
                 return ruleSet;
             }
         );
-        dryerLintLog(`\tLoaded ${ruleSets.length} RuleSets.`);
+        logInfo(`\tLoaded ${ruleSets.length} RuleSets.`);
         return ruleSets;
         // var n_invalid_rules = ruleList.length - valid_rules.length
         // if (n_invalid_rules == 0) {
@@ -256,14 +260,22 @@ export class RuleSet {
     }
 
     static loadLegacyRuleSet() {
-        dryerLintLog(`Reading list of legacy rules from settings.`);
-        const dryer_lint_config = vscode.workspace.getConfiguration(ConfigSectionName);
-        const language = dryer_lint_config.get<string | string[]>('language') || [];
-        const ruleConfigs: RuleConfig[] = dryer_lint_config.get<RuleConfig[]>('rules') ?? [];
+        logInfo(`Reading list of legacy rules from settings.`);
+        try {
+            const dryer_lint_config = vscode.workspace.getConfiguration(ConfigSectionName);
+            const language = dryer_lint_config.get<string | string[]>('language') || [];
+            const ruleConfigs: RuleConfig[] = dryer_lint_config.get<RuleConfig[]>('rules') ?? [];
 
-        const rules = ruleConfigs.flatMap(rule => Rule.ruleConfigToRule(rule) || []);
-        const glob = "**";
-        RuleSet.legacyRuleSet = new RuleSet('legacy rules', language, glob, rules);
+            const rules = ruleConfigs.flatMap(rule => Rule.ruleConfigToRule(rule) || []);
+            const glob = "**";
+            RuleSet.legacyRuleSet = new RuleSet('legacy rules', language, glob, rules);
+
+            logInfo(`Found ${rules.length} rules in the legacy rules.`)
+        } catch (error) {
+            logErrorObj(`Reading the legacy rules failed.`, error)
+            vscode.window.showErrorMessage(`Reading the legacy rules failed. Error: "${error}".`)
+        }
+        
     }
 }
 
@@ -293,18 +305,19 @@ export default class Rule
     public static loadAll() {
         // Whenever the Dryer Lint configurations change, update the list of rules.
         vscode.workspace.onDidChangeConfiguration(event => {
-            if (event.affectsConfiguration(ConfigSectionName)) {
-                // While we work on deprecating this, we load the legacy rules.
-                RuleSet.loadLegacyRuleSet();
-                invalidateDocumentStatusCache();
-                dryerLintLog(`The setting "${ConfigSectionName}" changed. Reloading rules.`);
-            }
-        });
-        vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration(RuleSetsConfigName)) {
-                dryerLintLog(`The setting "${RuleSetsConfigName}" changed. Reloading rules.`);
+                logInfo(`The list of rule sets "${RuleSetsConfigName}" changed in the settings.`);
                 RuleSet.loadRules();
                 invalidateDocumentStatusCache();
+            } 
+            // 
+            if (event.affectsConfiguration(ConfigSectionName)) {
+                // While we work on deprecating this, we load the legacy rules.
+                logInfo(`The list of legacy rules "${ConfigSectionName}" changed in the settings.`);
+                RuleSet.loadLegacyRuleSet();
+                invalidateDocumentStatusCache();
+            } else {
+                // Change to settings does not affect DryerLint.
             }
         });
 
@@ -386,10 +399,10 @@ export default class Rule
                 default:
                     throw new Error(`Unexpected case: ${regexEngine}.`)
             }
-            dryerLintLog(`Regex for "${ruleConfig.name}" is "${regex}".`);
+            logTrace(`Regex for "${ruleConfig.name}" is "${regex}".`);
         } catch (error) {
             const errorMsg: string = `Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".\nPattern: ${pattern}.`;
-            dryerLintLog(errorMsg);
+            logWarn(errorMsg);
             vscode.window.showErrorMessage(errorMsg);
             return undefined;
         }
