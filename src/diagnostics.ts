@@ -38,7 +38,7 @@ export class RegexMatchDiagnostic extends vscode.Diagnostic
         
         // Replace "$1" in the message with the first capture group, "$2" with the second and so on.
         // We must do this before calling super so that we can pass "message" to the superclass constructor.
-        var message = rule.message.replace(/\$(\d+)/g, (_, num) => regexMatch[Number(num)] || `<regex capture group ${num} not found>`);
+        var message = rule.message.replace(/\$(\d+)/g, (_, num) => regexMatch[Number(num)] || ``);
 
         var fix = rule.fix?.replace(/\$(\d+)/g, (_, num) => regexMatch[Number(num)] || '' );
         // const result = str.replace(regex, substitution);
