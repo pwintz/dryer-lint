@@ -5,6 +5,7 @@ import { minimatch } from 'minimatch'
 import isGlob = require("is-glob");
 import { invalidateDocumentStatusCache, RegexMatchDiagnostic } from './diagnostics';
 import {regex as regexPlus, pattern as patternPlus} from 'regex';
+import { recursion } from 'regex-recursion-cjs';
 
 // Define the name of the configurations used in the user's settings.json.
 export const ConfigSectionName: string = 'dryer-lint';
@@ -389,6 +390,7 @@ export default class Rule
                         flags: flags,
                         // Enabling "subclass" and disabling the "n" flag allows users to reference groups by the group number in messages and fixes.
                         subclass: true,
+                        plugins: [recursion],
                         disable: {
                             // The "x" flag causes whitespace to be ignored. The negation here is confusing, but it is correct.
                             // When ignoreWhitespace is true, we want to not disable the "x" flag, so that whitespace is ignored.

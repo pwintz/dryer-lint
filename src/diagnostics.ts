@@ -195,7 +195,7 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
     const docName = path.basename(fileName);
     if (fileName.startsWith('extension-output-') || fileName.startsWith(DryerLintLogName)) {
         // Surprisingly, onDidChangeTextDocument is triggered with the extension output panel changes. 
-        // This creates an infinite loop if we print anything to the consoue during refreshDiagnostics (spoiler: we do). 
+        // This creates an infinite loop if we print anything to the console during refreshDiagnostics (spoiler: we do). 
         // This if/return block stops this from happening.
         // !! WARNING: DO NOT PUT ANY PRINT STATEMENTS IN THIS IF-BLOCK.
         return;
@@ -213,7 +213,6 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
     } catch (err) {
         logErrorObj(`There was an error while refreshing diagnostics`, err);
         vscode.window.showErrorMessage(`There was an error while refreshing diagnostics: "${err}".`);
-        // throw error;
     }
 }
 

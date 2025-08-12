@@ -216,7 +216,7 @@
                                     },
                                     "ignoreWhitespace": {
                                         "type": "boolean",
-                                        "default": false, 
+                                        "default": false,
                                         "description": "Ignore white space in the Regex pattern, allowing for more readability."
                                     }
                                 }
@@ -243,7 +243,8 @@
         "@types/is-glob": "^4.0.3",
         "@types/vscode": "^1.98.0",
         "minimatch": "^10.0.1",
-        "regex": "^6.0.1"
+        "regex": "^6.0.1",
+        "regex-recursion-cjs": "^6.0.2"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",

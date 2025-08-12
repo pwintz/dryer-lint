@@ -2,12 +2,13 @@
 
 ## 2.0
 
-* Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which provides many new regex features, including  
+* Changed the default regex engine from the built-in JavaScript processor to the [Regex+](https://github.com/slevithan/regex) processor, which provides many new regex features, including  
   * Possessive quantifiers (`"*+"`, `"++"`, and `"?"`) to block a quantifier from backtracking (or "returning characters"). Thus, `"a*+"` means
   * Ignores white space in patterns and allows for comments. 
   * Subroutines (using a group subpattern using `\g<groupname>`)
   * Subroutine definition groups (i.e., using `(?(DEFINE) ... )`)
   * Atomic groups to block backtracking to before the start of the group (can improve performance).
+  * Recursion, which helpful for matching balanced delimiters, such as parentheses. Uses the [regex-recursion](https://github.com/slevithan/regex-recursion) plugin.
 * Changed the data type for the list of rule sets and the list of rules within a rule set to be defined as a dictionary instead of an array. Arrays are deprecated but will still work (for now). Dictionaries have the following advantages:
   - VS Code will merge dictionaries from different settings files, so you define rules separately in User settings and workspace settings.
   - Navigating a long dictionary is somewhat easier. If a rule or rule set is collapsed in the editor, then the key is still visible. Also, then keys are displayed in the VS Code "Outline" panel.
@@ -19,13 +20,13 @@
 * Fix: Handle gracefully the case where there is no legacy rule set. 
 
 
-Breaking changes: 
-* Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which requires stricter syntax but expanded functionality. To restore the old engine, add `"regexEngine": "legacy"` to a rule. 
+### Breaking changes in 2.0
+* Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which requires stricter syntax but has expanded functionality. This means old regular expressions will break. To restore the old engine, add `"regexEngine": "legacy"` to a rule. 
 Examples of patterns that were previously OK but will fail with the new regex engine include:
 
   * Unescaped `{` or `}`, except for when used as a quantifier. E.g., `\\text{Hello}` worked, previously, but now will cause an error. To compile with the stricter rules, change the pattern to `\\text\{Hello\}`.
   * Similarly, "[" and "]" must be escaped as `\[` and `\]` unless used to match a character class, like `[abc]` or `[m-z]`.
-* White spaces in patterns are now ignored by default. To match a horizontal white space, use `[ \\t]`. To match any white space, use `\\s`
+* White spaces in patterns are now ignored by default. To match a horizontal white space, use `[ \\t]`. To match any white space, use `\\s`.
 
 ## 1.4.1 
 
