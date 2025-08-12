@@ -2,18 +2,22 @@
 
 ## 2.0
 
-* Changed the data type for the list of rule sets and the list of rules within a rule set to be defined as a dictionary instead of an array. Arrays will still work (for now), but dictionaries come with nice advantages:
-  - VS Code will merge dictionaries from different settings files, so you define rules separately in User settings and workspace settings.
-  - Navigating a long dictionary is somewhat easier. If a rule or rule set is collapsed in the editor, then the key is still visible. Also, then keys are displayed in the VS Code "Outline" panel.
-* Allow a rule to be defined as an array of strings that are concatenated together, providing better readability.
-* Fix: Clear diagnostics when a file is closed, deleted, or renamed. 
-* Make `"message"` field optional in rules and use `"name"` field instead of `"message"` if `"message"` is missing.
 * Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which provides many new regex features, including  
   * Possessive quantifiers (`"*+"`, `"++"`, and `"?"`) to block a quantifier from backtracking (or "returning characters"). Thus, `"a*+"` means
   * Ignores white space in patterns and allows for comments. 
   * Subroutines (using a group subpattern using `\g<groupname>`)
   * Subroutine definition groups (i.e., using `(?(DEFINE) ... )`)
   * Atomic groups to block backtracking to before the start of the group (can improve performance).
+* Changed the data type for the list of rule sets and the list of rules within a rule set to be defined as a dictionary instead of an array. Arrays are deprecated but will still work (for now). Dictionaries have the following advantages:
+  - VS Code will merge dictionaries from different settings files, so you define rules separately in User settings and workspace settings.
+  - Navigating a long dictionary is somewhat easier. If a rule or rule set is collapsed in the editor, then the key is still visible. Also, then keys are displayed in the VS Code "Outline" panel.
+* The patterns for rules can now be defined as an array of strings to improve readability. All the entries are concatenated into a single string to define the regex.
+* Make `"message"` field optional in rules and use `"name"` field instead of `"message"` if `"message"` is missing.
+* Improved error checking so fewer errors will be fatal.
+* Development: Implemented multiple logging levels to make the logs more manageable.
+* Fix: Clear diagnostics when a file is closed, deleted, or renamed. 
+* Fix: Handle gracefully the case where there is no legacy rule set. 
+
 
 Breaking changes: 
 * Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which requires stricter syntax but expanded functionality. To restore the old engine, add `"regexEngine": "legacy"` to a rule. 

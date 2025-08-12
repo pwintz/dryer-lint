@@ -202,7 +202,10 @@
                                     },
                                     "regexEngine": {
                                         "type": "string",
-                                        "enum": ["legacy", "regex+"],
+                                        "enum": [
+                                            "legacy",
+                                            "regex+"
+                                        ],
                                         "default": "regex+",
                                         "description": "Select the regex engine used to process regular expressions for this rule. The \"regex+\" engine is recommended for all new rules. You can use \"legacy\" to keep existing rules that would break with the \"regex+\" engine."
                                     },

@@ -83,20 +83,20 @@ function refreshFixProviders(context: vscode.ExtensionContext){
             const docFilter: vscode.DocumentFilter[] = ruleSet.getDocumentLanguageFilter();
             return [
                 vscode.languages.registerCodeActionsProvider(
-                    docFilter, singleFixProvider, 
-                    {
-                        providedCodeActionKinds: [
-                            vscode.CodeActionKind.QuickFix
-                        ]
-                    }), 
-                vscode.languages.registerCodeActionsProvider(
                     docFilter, fixAllProvider, 
                     {
                         providedCodeActionKinds: [
                             vscode.CodeActionKind.SourceFixAll,
                             vscode.CodeActionKind.QuickFix // <- This is needed for the "Fix All" options to be shown in the quick fix menu.
                         ]
-                    })
+                }),
+                vscode.languages.registerCodeActionsProvider(
+                    docFilter, singleFixProvider, 
+                    {
+                        providedCodeActionKinds: [
+                            vscode.CodeActionKind.QuickFix
+                        ]
+                })
            ];
         }
     );
@@ -163,11 +163,11 @@ class SingleFixProvider implements vscode.CodeActionProvider
                 }
 
                 // Create human-readable label that is shown in quick-fix menu.
-                var actionLabel: string = `Fix: "${diagnostic.message}" (Dryer Lint)`;
+                var actionLabel: string = `Fix: ${diagnostic.message} (Dryer Lint)`;
                 const action = new vscode.CodeAction(actionLabel, vscode.CodeActionKind.QuickFix);
                 action.edit = new vscode.WorkspaceEdit();
                 action.edit.set(document.uri, edits);
-                action.isPreferred = true;
+                action.isPreferred = false;
                 logTrace(`Created an action "${action.title}" for "${diagnostic.message}".`);
                 return action;
             }
@@ -273,15 +273,18 @@ class FixAllProvider implements vscode.CodeActionProvider
                 } else {
                     var actionLabel: string =`Fix all (x${edits.length}): "${rule.name}" (Dryer Lint)`;
                 }
-                const quickFixAllAction = new MultipleCodeAction(actionLabel, vscode.CodeActionKind.QuickFix, nonOverlappingEdits.length);
+                const quickFixAllAction = new vscode.CodeAction(actionLabel, vscode.CodeActionKind.QuickFix);
                 quickFixAllAction.edit = new vscode.WorkspaceEdit();
                 quickFixAllAction.edit.set(document.uri, nonOverlappingEdits);
-                
+
+                // Mark all fix all actions as "preferred" so they are placed at the top of the list.
+                quickFixAllAction.isPreferred = true;
+
                 refreshStatusDisposable.dispose();
                 return quickFixAllAction;
             }
         );
-
+        
         const run_time = Date.now() - start_time;
         logDebug(`Created ${actions.length} "Fix All" actions for ${this.ruleSet} in ${run_time} ms: [${actions?.flatMap(action => "\n\t" + action.title)}\n]. Skipped ${n_rulesWithOnlyOneEdit} rules that had only 1 edit.`);
         return actions;
