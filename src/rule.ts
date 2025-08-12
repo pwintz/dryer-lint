@@ -103,16 +103,17 @@ export class RuleSet {
 
     private doesMatchGlob(filePath: string): boolean {
 
-        // TODO: We don't handle multiroot workspaces: https://code.visualstudio.com/docs/editor/workspaces/workspaces#_multiroot-workspace
-        const workspaceFolder: string  | undefined = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-        if (workspaceFolder === undefined) {
-            return false;
-        }
-        const relativePathFromWorkspaceRoot = path.relative(workspaceFolder, filePath);
-
-        // Check if the path to the file (relative to the root of the workspace) mathces the glob pattern.
-        const doesMatchGlob = minimatch(relativePathFromWorkspaceRoot, this.glob, {dot: true});
-        return doesMatchGlob;
+        // Create a list of workspace folders. If there are no workspace folders, use an empty list, which will cause the "some" function to return false.
+        const workspaceFolders = vscode.workspace.workspaceFolders || [];
+        const doesGlobMatchRelativeToAnyWorkspace = workspaceFolders.some(folder => {
+            // Get the path to the file relative to the root of the workspace.
+            const relativePathFromWorkspaceRoot = path.relative(folder.uri.fsPath, filePath);
+            
+            // Check if the path to the file (relative to the root of the workspace) mathces the glob pattern.
+            const doesMatchGlob = minimatch(relativePathFromWorkspaceRoot, this.glob, {dot: true});
+            return doesMatchGlob;
+        });
+        return doesGlobMatchRelativeToAnyWorkspace;
     }
 
     // Get a vscode.DocumentSelector, as described here: https://code.visualstudio.com/api/references/document-selector

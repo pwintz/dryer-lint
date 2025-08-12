@@ -18,6 +18,7 @@
 * Development: Implemented multiple logging levels to make the logs more manageable.
 * Fix: Clear diagnostics when a file is closed, deleted, or renamed. 
 * Fix: Handle gracefully the case where there is no legacy rule set. 
+* Fix: RuleSet file globs now match against any workspace root in multi-root workspaces instead of only the first one.
 
 
 ### Breaking changes in 2.0
