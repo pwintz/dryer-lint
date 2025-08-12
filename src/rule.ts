@@ -5,7 +5,9 @@ import { minimatch } from 'minimatch'
 import isGlob = require("is-glob");
 import { invalidateDocumentStatusCache, RegexMatchDiagnostic } from './diagnostics';
 import {regex as regexPlus, pattern as patternPlus} from 'regex';
-import { recursion } from 'regex-recursion-cjs';
+
+// ! The automatic conversion from "require" to "import" produces code that fails to compile.
+const {recursion} = require('regex-recursion-cjs');
 
 // Define the name of the configurations used in the user's settings.json.
 export const ConfigSectionName: string = 'dryer-lint';
