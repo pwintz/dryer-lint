@@ -6,4 +6,5 @@ node_modules
 .DS_STORE
 *.log
 test-results.xml
-test_documents/
+test_documents
+dryer-lint-test-workspace
