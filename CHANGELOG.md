@@ -62,7 +62,7 @@ This significantly improves performance for diagnostic refreshes.
 - Update the Quick Fix menu to show a separate item for each rule violation and a "Fix all" item for any rule that is violated multiple times. The items show what rule is being violated. The global "Fix all" item from previous versions was removed because it generally did not work well.
 - Deleted code for "sorting" fixes.
 - Restructured how "fixes" are generated, by using the initial regex match instead of searching again for the pattern in the matched text. This is important because the old method of searching in the matched text fails when using lookheads or lookbehinds that depend on text that is not included in the match.
-- Removed "m" from the regex flags to allow matching the beginning of a multiline string when using "maxLines" greater than 1. 
+- Removed `"m"` from the regex flags to allow matching the beginning of a multiline string when using "maxLines" greater than 1. 
 - Made some improvements to when the diagnostics are refreshed.
 - Added a status bar message when diagnostics are refreshed, showing the time required. This helps to alert users when Dryer Lint is degrading editor performance.
 - Made the inline enable/disable comment lines formatting more permissive, and added an error alert when a comment is invalid.

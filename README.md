@@ -111,7 +111,7 @@ Dryer Lint uses JavaScript regular expressions the Regex+ package for extended f
 
 - `g` flag: Global matching (rules will match all violations in a line, instead only the first).
 - `m` flag: Multiline mode.
-- `v` flag: Enables "upgraded Unicode features", [improved character classes](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Regular_expressions/Character_class), and stricter syntax. Can be disabled for backward compatibilty by switching to the "legacy" regex engine.  
+- `v` flag: Enables "upgraded Unicode features", [improved character classes](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Regular_expressions/Character_class), and stricter syntax. Can be disabled for backward compatibility by switching to the "legacy" regex engine.  
 
 The following flags are used if enabled in a rule's settings:
 

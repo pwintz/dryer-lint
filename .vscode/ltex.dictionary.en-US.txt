@@ -3,3 +3,5 @@ relint
 caseInsensitive
 Nim
 Blonna
+lookheads
+lookbehinds
