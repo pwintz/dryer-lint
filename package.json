@@ -41,7 +41,7 @@
         "configuration": {
             "title": "Dryer Lint",
             "properties": {
-                "dryerLint.ruleSets.legacy": {
+                "dryerLint.ruleSets-legacy": {
                     "type": "list",
                     "deprecationMessage": "Deprecated: Use \"dryerLint.ruleSets\" instead. The property \"dryerLint.ruleSets.legacy\" is provided to allow for the legacy usage of \"dryerLint.ruleSets\", which uses a list of rule set dictionaries instead of a dictionary of rule set dictionaries. See the README for details."
                 },

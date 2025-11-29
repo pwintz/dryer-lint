@@ -374,9 +374,9 @@ For instance
     // ...
 ]
 ```
-To keep existing v1.4 rules while allowing you to start updating to the v2.0 format, change `"dryerLint.ruleSets"` to `"dryerLint.ruleSets.legacy" for the v1.4 list of rule sets:
+To keep existing v1.4 rules while allowing you to start updating to the v2.0 format, change `"dryerLint.ruleSets"` to `"dryerLint.ruleSets-legacy" for the v1.4 list of rule sets:
  ```jsonc
- "dryerLint.ruleSets.legacy": [
+ "dryerLint.ruleSets-legacy": [
      {   // First rule set
          "name": "Example Rule Set 1",
          "language": "c++",

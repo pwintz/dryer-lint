@@ -156,7 +156,7 @@ export class RuleSet {
     }
 
     static getAllRules(): RuleSet[] {
-        if (RuleSet.legacyRuleSet == undefined) {
+        if (RuleSet.legacyRuleSet === undefined) {
             return RuleSet.all;
         } else {
             return RuleSet.all.concat([RuleSet.legacyRuleSet]);
@@ -183,49 +183,159 @@ export class RuleSet {
         try{
             RuleSet.all = RuleSet.getRules();
         } catch (e) {
-            logErrorObj(`loadRules() failed.`, e)
+            logErrorObj(`loadRules() failed.`, e);
         }
     }
-    
-    static getRules(): RuleSet[] {
-        logInfo(`Reading list of RulesSets from settings.`);
-        const dryerLintConfig: vscode.WorkspaceConfiguration  = vscode.workspace.getConfiguration("dryerLint");
-        
-        if (!dryerLintConfig.has("ruleSets")){
-            throw new Error(`No "dryerLint.ruleSets" setting was not found!`);
+
+    static readRuleSetConfigs(dryerLintConfig: vscode.WorkspaceConfiguration, ruleSetConfigName: string): RuleSetConfig[] {
+        // If the given setting is not found, then return an empty array.
+        if (!dryerLintConfig.has(ruleSetConfigName)){
+            return [];
         }
+        
+        // Create an empty array.
+        var ruleSetsConfigsArray: RuleSetConfig[] = [];
         
         // Handle the rule set being given as either an array or dictionary. 
         // We are moving away from arrays and prefer dictionaries, but we continue to support
         // arrays for backward compatibility.
-        const ruleSetsConfigArrayOrDict = dryerLintConfig.get("ruleSets");
-        var ruleSetsConfigsArray: RuleSetConfig[] = [];
+        const ruleSetsConfigArrayOrDict = dryerLintConfig.get(ruleSetConfigName);
         if (Array.isArray(ruleSetsConfigArrayOrDict)) {// If list of rule sets is given as an array...
-            ruleSetsConfigsArray = dryerLintConfig.get<RuleSetConfig[]>("ruleSets") || [];
+            logDebug(`ruleSetsConfigArrayOrDict is an array.`);
+            ruleSetsConfigsArray = ruleSetsConfigArrayOrDict;
+            logTrace(`ruleSetsConfigsArray = ${JSON.stringify(ruleSetsConfigsArray)}.`);
         } else {// If configuration is a dictionary...
+            logDebug(`ruleSetsConfigArrayOrDict is an object (dictionary).`);
             const ruleSetsConfigsDict: { [id: string] : RuleSetConfig; } = dryerLintConfig.get<{ [id: string] : RuleSetConfig; }>("ruleSets") || {};
+            logTrace(`ruleSetsConfigsDict=${JSON.stringify(ruleSetsConfigsDict)}.`);
             // Map the dictionary to an array, storing the name in the "name" property.
-            ruleSetsConfigsArray = Object.keys(ruleSetsConfigsDict).flatMap(
-                (name: string) => {
+            ruleSetsConfigsArray = Object.entries(ruleSetsConfigsDict).map(
+                ([name, ruleSetConfig]: [string, RuleSetConfig]) => {
+                    // logTrace(`name (from keys):  ${name}`)
+                    // logTrace(`Before: ruleSetsConfigsDict["${name}"] ==="${ruleSetsConfigsDict[name]}".`);
+                    // logTrace(`Before: ruleSetsConfigsDict["${name}"].name ==="${ruleSetsConfigsDict[name].name}".`);
+                    // logTrace(`Before: ruleSetsConfigsDict["${name}"]["name"] === "${ruleSetsConfigsDict[name]["name"]}".`);
+                    
+                    // const ruleSetConfig: RuleSetConfig = ruleSetsConfigsDict[name];
+                    ruleSetConfig.name = name;
+                    // logTrace(`Before: Object.keys(ruleSetConfig): ${Object.keys(ruleSetConfig)}`);
                     // Set the name to the key given for the rule set.
-                    ruleSetsConfigsDict[name].name = name;
-                    return ruleSetsConfigsDict[name];
+                    // logTrace(`Assign ruleSetsConfigsDict[${name}]["name"] = "${name}".`);
+                    // ruleSetsConfigsDict[name]["name"] = name;
+                    // logTrace(`After: ruleSetConfig=${ruleSetConfig}`);
+                    // ruleSetConfig.name = name;
+                    // const ruleSetName=  ruleSetConfig.name;
+//                     const ruleSetString = JSON.stringify(ruleSetConfig);
+//                     logTrace(`After: ruleSetConfig type after name access: ${typeof ruleSetConfig}`);
+//                     logTrace(`After: Object.keys(ruleSetConfig): ${Object.keys(ruleSetConfig)}`);
+//                     logTrace(`After: ruleSetConfig.ruleSetString: ${ruleSetString}`);
+//                     logTrace(`After: JSON.stringify(ruleSetConfig): ${JSON.stringify(ruleSetConfig)}`);
+//                     // logTrace(`After: ruleSetName: ${ruleSetName}`);
+//                     logTrace(`After: ruleSetConfig.name: ${ruleSetConfig.name}`);
+// 
+//                     logTrace(`After: ruleSetsConfigsDict["${name}"] === "${ruleSetsConfigsDict[name]}".`);
+//                     logTrace(`After: ruleSetsConfigsDict["${name}"].name === "${ruleSetsConfigsDict[name].name}".`);
+//                     logTrace(`After: ruleSetsConfigsDict["${name}"]["name"] === "${ruleSetsConfigsDict[name]["name"]}".`);
+//                     logTrace(`After: ruleSetConfig.name === "${ruleSetConfig.name}".`);
+//                     logTrace(`After: ruleSetConfig["name"] === "${ruleSetConfig["name"]}".`);
+                    
+                    if (ruleSetConfig === undefined){
+                        throw new Error("The ruleSetConfig is undefined!");
+                    }
+                    return ruleSetConfig;
                 }
-            )
+            );
+        }
+        return ruleSetsConfigsArray;
+    }
+
+    
+    static getRules(): RuleSet[] {
+        logInfo(`=======================================`);
+        logInfo(`=== Reading RulesSets from settings ===`);
+        logInfo(`=======================================`);
+
+        // Get the dryerLint configuration object.
+        const dryerLintConfig: vscode.WorkspaceConfiguration  = vscode.workspace.getConfiguration("dryerLint");
+
+
+//         
+//         if (!dryerLintConfig.has("ruleSets") && !dryerLintConfig.has("ruleSets-legacy")){
+//             throw new Error(`No "dryerLint.ruleSets" or "ruleSets-legacy" settings were found!`);
+//         }
+//         
+        var ruleSetsConfigsArray: RuleSetConfig[] = [...RuleSet.readRuleSetConfigs(dryerLintConfig, "ruleSets"), ...RuleSet.readRuleSetConfigs(dryerLintConfig, "ruleSets-legacy")];
+//         
+//         // Handle the rule set being given as either an array or dictionary. 
+//         // We are moving away from arrays and prefer dictionaries, but we continue to support
+//         // arrays for backward compatibility.
+//         const ruleSetsConfigArrayOrDict = dryerLintConfig.get("ruleSets");
+//         logDebug(`Loaded ruleSetsConfigArrayOrDict=${JSON.stringify(ruleSetsConfigArrayOrDict)} from dryerLintConfig.`);
+//         if (Array.isArray(ruleSetsConfigArrayOrDict)) {// If list of rule sets is given as an array...
+//             logDebug(`ruleSetsConfigArrayOrDict is an array.`);
+//             ruleSetsConfigsArray = ruleSetsConfigArrayOrDict;
+//             logTrace(`ruleSetsConfigsArray = ${JSON.stringify(ruleSetsConfigsArray)}.`);
+//         } else {// If configuration is a dictionary...
+//             logDebug(`ruleSetsConfigArrayOrDict is an object (dictionary).`);
+//             const ruleSetsConfigsDict: { [id: string] : RuleSetConfig; } = dryerLintConfig.get<{ [id: string] : RuleSetConfig; }>("ruleSets") || {};
+//             logTrace(`ruleSetsConfigsDict=${JSON.stringify(ruleSetsConfigsDict)}.`);
+//             // Map the dictionary to an array, storing the name in the "name" property.
+//             ruleSetsConfigsArray = Object.entries(ruleSetsConfigsDict).map(
+//                 ([name, ruleSetConfig]: [string, RuleSetConfig]) => {
+//                     // logTrace(`name (from keys):  ${name}`)
+//                     // logTrace(`Before: ruleSetsConfigsDict["${name}"] ==="${ruleSetsConfigsDict[name]}".`);
+//                     // logTrace(`Before: ruleSetsConfigsDict["${name}"].name ==="${ruleSetsConfigsDict[name].name}".`);
+//                     // logTrace(`Before: ruleSetsConfigsDict["${name}"]["name"] === "${ruleSetsConfigsDict[name]["name"]}".`);
+//                     
+//                     // const ruleSetConfig: RuleSetConfig = ruleSetsConfigsDict[name];
+//                     ruleSetConfig.name = name;
+//                     // logTrace(`Before: Object.keys(ruleSetConfig): ${Object.keys(ruleSetConfig)}`);
+//                     // Set the name to the key given for the rule set.
+//                     // logTrace(`Assign ruleSetsConfigsDict[${name}]["name"] = "${name}".`);
+//                     // ruleSetsConfigsDict[name]["name"] = name;
+//                     // logTrace(`After: ruleSetConfig=${ruleSetConfig}`);
+//                     // ruleSetConfig.name = name;
+//                     // const ruleSetName=  ruleSetConfig.name;
+// //                     const ruleSetString = JSON.stringify(ruleSetConfig);
+// //                     logTrace(`After: ruleSetConfig type after name access: ${typeof ruleSetConfig}`);
+// //                     logTrace(`After: Object.keys(ruleSetConfig): ${Object.keys(ruleSetConfig)}`);
+// //                     logTrace(`After: ruleSetConfig.ruleSetString: ${ruleSetString}`);
+// //                     logTrace(`After: JSON.stringify(ruleSetConfig): ${JSON.stringify(ruleSetConfig)}`);
+// //                     // logTrace(`After: ruleSetName: ${ruleSetName}`);
+// //                     logTrace(`After: ruleSetConfig.name: ${ruleSetConfig.name}`);
+// // 
+// //                     logTrace(`After: ruleSetsConfigsDict["${name}"] === "${ruleSetsConfigsDict[name]}".`);
+// //                     logTrace(`After: ruleSetsConfigsDict["${name}"].name === "${ruleSetsConfigsDict[name].name}".`);
+// //                     logTrace(`After: ruleSetsConfigsDict["${name}"]["name"] === "${ruleSetsConfigsDict[name]["name"]}".`);
+// //                     logTrace(`After: ruleSetConfig.name === "${ruleSetConfig.name}".`);
+// //                     logTrace(`After: ruleSetConfig["name"] === "${ruleSetConfig["name"]}".`);
+//                     
+//                     if (ruleSetConfig === undefined){
+//                         throw new Error("The ruleSetConfig is undefined!");
+//                     }
+//                     return ruleSetConfig;
+//                 }
+//             );
+//         }
+        if (ruleSetsConfigsArray === undefined) {
+            logWarn(`ruleSetsConfigsArray was undefined after it should have been loaded.`);
         }
         
-        // if (ruleSetsConfigs.length == 0){
-        //     throw new Error("The setting dryerLint.ruleSets was empty!");
-        // }
+        if (ruleSetsConfigsArray.length === 0){
+            throw new Error("The ruleSetsConfigsArray is empty!");
+        }
 
         // !! Print statements for debugging.
-        // dryerLintLog(`ruleSetsConfigs:`)
-        // ruleSetsConfigs.forEach(
-        //     (ruleSetConfig) => {
-        //         dryerLintLog(`\tname: "${ruleSetConfig.name}", language: "${ruleSetConfig.language}", rule count: ${ruleSetConfig.rules.length}`);
-        //     }
-        // )
+        logTrace(`ruleSetsConfigs (${ruleSetsConfigsArray.length} item(s)):`);
+        ruleSetsConfigsArray.forEach(
+            (ruleSetConfig) => {
+                logTrace(`ruleSetConfig "${ruleSetConfig.name}":\n\tlanguage: "${ruleSetConfig.language}"\n\trule count: ${ruleSetConfig.rules.length}`);
+            }
+        );
 
+        // ╭─────────────────────────────────────────────────────────────╮
+        // │             Generate the rules in each rule set             │
+        // ╰─────────────────────────────────────────────────────────────╯
         const ruleSets: RuleSet[] =  ruleSetsConfigsArray.flatMap(
             (ruleSetConfig: RuleSetConfig) => {
                 var rules: Rule[];
@@ -241,14 +351,14 @@ export class RuleSet {
                     // Generate an array of Rules from the dictionary of RuleConfigs.
                     rules = Object.keys(ruleConfigsDict).flatMap(
                         (name: string) => {
-                            rules
+                            rules;
                             const ruleConfig = ruleConfigsDict[name];
                             // Set "name" property.
                             ruleConfig.name = name;
                             // Convert the RuleConfig to a Rule (or an empty element, if an error occurs)
                             return Rule.ruleConfigToRule(ruleConfig) || [];
                         }
-                    )
+                    );
                 }
                 const glob: string = ruleSetConfig.glob || "**";
                 const ruleSet: RuleSet = new RuleSet(ruleSetConfig.name, ruleSetConfig.language, glob, rules);
@@ -272,16 +382,17 @@ export class RuleSet {
         try {
             const dryer_lint_config = vscode.workspace.getConfiguration(ConfigSectionName);
             const language = dryer_lint_config.get<string | string[]>('language') || [];
-            const ruleConfigs: RuleConfig[] = dryer_lint_config.get<RuleConfig[]>('rules') ?? [];
+            // const ruleConfigs: RuleConfig[] = dryer_lint_config.get<RuleConfig[]>('rules') ?? [];
+            const ruleConfigs: RuleConfig[] = Array.from(dryer_lint_config.get<RuleConfig[]>('rules') ?? []);
 
             const rules = ruleConfigs.flatMap(rule => Rule.ruleConfigToRule(rule) || []);
             const glob = "**";
             RuleSet.legacyRuleSet = new RuleSet('legacy rules', language, glob, rules);
 
-            logInfo(`Found ${rules.length} rules in the legacy rules.`)
+            logInfo(`Found ${rules.length} rules in the legacy rules.`);
         } catch (error) {
-            logErrorObj(`Reading the legacy rules failed.`, error)
-            vscode.window.showErrorMessage(`Reading the legacy rules failed. Error: "${error}".`)
+            logErrorObj(`Reading the legacy rules failed.`, error);
+            vscode.window.showErrorMessage(`Reading the legacy rules failed. Error: "${error}".`);
         }
         
     }
@@ -406,7 +517,7 @@ export default class Rule
                     })({raw: [pattern]});
                     break;
                 default:
-                    throw new Error(`Unexpected case: ${regexEngine}.`)
+                    throw new Error(`Unexpected case: ${regexEngine}.`);
             }
             logTrace(`Regex for "${ruleConfig.name}" is "${regex}".`);
         } catch (error) {
