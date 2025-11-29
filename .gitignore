@@ -8,3 +8,4 @@ node_modules
 test-results.xml
 test_documents
 dryer-lint-test-workspace
+PAT.txt
