@@ -50,15 +50,10 @@
                     "description": "Contains a dictionary of Dryer Lint rule sets for defining groups of linting rules in different languages.",
                     "items": {
                         "required": [
-                            "name",
                             "language",
                             "rules"
                         ],
-                        "properies": {
-                            "name": {
-                                "type": "string",
-                                "description": "Name of the rule set."
-                            },
+                        "properties": {
                             "language": {
                                 "type": [
                                     "string",
@@ -78,15 +73,9 @@
                                 "description": "Dictionary of Dryer Lint rules.",
                                 "items": {
                                     "required": [
-                                        "name",
                                         "pattern"
                                     ],
                                     "properties": {
-                                        "name": {
-                                            "type": "string",
-                                            "minLength": 1,
-                                            "description": "A concise name for the rule."
-                                        },
                                         "pattern": {
                                             "type": "string",
                                             "minLength": 1,
