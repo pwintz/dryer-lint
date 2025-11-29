@@ -106,13 +106,27 @@ We highly recommend the use of Error Lens with Dryer Lint.
 
 To apply all of the fixes in the active editor at once (or, as many as possible that don't overlap), run `"Dryer Lint: Fix All"` from the VS Code command pallet. 
 
-![alt text](assets/fix_all_screenshot.png)
+![screensh  ot of "fix all" command in command pallet](assets/fix_all_screenshot.png)
 
 
-## Guide to Writing Regex 
+## Writing Regular Expressions for Dryer Lint
 
-To learn regex and test new rules, the website [https://regex101.com/](regex101.com) is invaluable.
-Saving the regex in regex101.com and placing a link to the saved regex makes it easier to test changes to the expression in the future. 
+Dryer Lint uses JavaScript regular expressions the Regex+ package for extended functionality and the following flags are always enabled:
+
+- `g` flag: Global matching (rules will match all violations in a line, instead only the first).
+- `m` flag: Multiline mode.
+- `v` flag: Enables "upgraded Unicode features", [improved character classes](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Regular_expressions/Character_class), and stricter syntax. Can be disabled for backward compatibilty by switching to the "legacy" regex engine.  
+
+The following flags are used if enabled in a rule's settings:
+
+- `i` flag: Ignore case. Off by default.
+- `x` flag: Ignore white space in pattern string. Off by default. (Simulated by Regex+)
+
+More details are in the sections below.
+
+A great tool for learning regex and writing and testing rules is [https://regex101.com/](regex101.com).
+Regex101.com allows you to save a regular expression. 
+You can then place a link to the saved regex so you can return to it in the future.
 ```jsonc
 {
     // Link: https://regex101.com/r/QsDziM/latest
@@ -126,9 +140,26 @@ Saving the regex in regex101.com and placing a link to the saved regex makes it 
 ```
 (See the section “Escaping Regular Expressions”, below, regarding copying expression from regex101.com into settings JSON file.)
 
+
 ### Regex Flags
 In Dryer Lint, all regex searches use the `g` flag (to find multiple matches instead of only the first) and the `m` flag (so that `^` matches the start of each line and `$` matches the end of each line).
 If `"caseInsensitive": true` for a given rule, then the `i` flag is also used.
+
+Dryer Lint also uses the `v` regex flag for "upgraded Unicode support".
+
+## Regex+: Expanded Regular Expression Syntax
+
+Dryer Lint uses the [Regex+ JavaScript package](https://github.com/slevithan/regex) as its regex processing engine.
+Regex+ requires stricter syntax for regular expressions while adding many features to the built-in JavaScript engine.
+In particular, Regex+ uses the 
+   for expanded regular expression pattern definitions in JavaScript.  
+
+which provides many new regex features, including  
+  * Possessive quantifiers (`"*+"`, `"++"`, and `"?"`) to block a quantifier from backtracking (or "returning characters"). Thus, `"a*+"` means
+  * Ignores white space in patterns and allows for comments. 
+  * Subroutines (using a group subpattern using `\g<groupname>`)
+  * Subroutine definition groups (i.e., using `(?(DEFINE) ... )`)
+  * Atomic groups to block backtracking to before the start of the group (can improve performance).
 
 ### Matching Line Breaks
 By default, each regex rule is applied to a single line at a time, in which case `^` matches the start of a line and `$` matches the end.
@@ -137,7 +168,7 @@ Since the `m` flag is used, `^` matches the start of each line and `$` matches t
 <!-- In this case, `^` matches the start of the entire string and `$`, the end (The `m` regex flag is not used).  -->
 <!-- To match a new line in the middle of the string, use `\r?\n` (which matches both the Windows line break `\r\n` and the Unix line break `\n`). -->
 
-### Group Replacements in Fixes and Messages
+### Group Replacements in "fix" and "message" Properties
 
 In each rule definition, the `"fix"` and `"message"` fields can use replacements from the matched Regex groups.
 The string `$0` is replaced by the entire match, `$1` is replaced with the contents of the first group capture, and `"$2"` is replaced with the second, and so on.
@@ -161,6 +192,9 @@ is “Empty \cite{}."
 In JSON, the backslash character `\` is used to escape other characters, so, for example, `\t` is a tab character, `\n` is a new line character, and (critically) `\\` is a backslash.
 Backslashes are used extensively in regular expressions. 
 To write regex in JSON, replace every occurrence of `\` with `\\`.  
+
+There are several VS Code extensions that provide this functionality. 
+I use [`vscode-json`](https://marketplace.visualstudio.com/items?itemName=andyyaldoo.vscode-json).
 
 ## Disable/Enable Dryer Lint via Inline Comment 
 
@@ -219,7 +253,7 @@ Placing
 ```c++ 
 // dryer-lint: enabled "my cool rulz"
 ```
-in a section of code where Dryer Lint is disabled will not cause `"my cool rulz"` rules to become active again until Dryer Lint is renabled.
+in a section of code where Dryer Lint is disabled will not cause `"my cool rulz"` rules to become active again until Dryer Lint is reenabled.
 
 <!-- TODO: Add a screenshot indicating the error message when a rule set name is not recognized. -->
 
@@ -360,3 +394,5 @@ vsce publish [major/minor/path]
 
 ### Development notes
 When change the "contributes"/"configuration" in `package.json`, you need to reload the VS Code window for IntelliCode to update its autocompletion in the `settings.json` file.
+
+To print trace and debug logging statements, you need to change the log from its default value ("Info"). To change the log level, select "Developer: Set Log Level..." from the command palette. 

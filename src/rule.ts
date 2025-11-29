@@ -1,39 +1,60 @@
 import * as vscode from 'vscode';
-import { dryerLintLog } from './extension';
+import { logTrace, logDebug, logInfo, logWarn, logErrorMsg, logErrorObj } from './extension';
 import path = require('path');
 import { minimatch } from 'minimatch'
 import isGlob = require("is-glob");
 import { invalidateDocumentStatusCache, RegexMatchDiagnostic } from './diagnostics';
+import {regex as regexPlus, pattern as patternPlus} from 'regex';
+
+// ! The automatic conversion from "require" to "import" produces code that fails to compile.
+const {recursion} = require('regex-recursion-cjs');
 
 // Define the name of the configurations used in the user's settings.json.
 export const ConfigSectionName: string = 'dryer-lint';
 export const RuleSetsConfigName: string = 'dryerLint.ruleSets';
 
 export type Severity = keyof typeof vscode.DiagnosticSeverity;
+export enum RegexEngine {
+    LEGACY = "legacy", 
+    REGEX_PLUS = "regex+"
+}
 
 export type RuleSetConfig = {
     name: string, 
     language: string[] | string, 
     glob: string, 
-    rules: RuleConfig[]
+    rules: RuleConfig[] | { [id: string] : RuleConfig; }
 }
 
 export type RuleConfig = {
     name: string,
-    pattern: string,
+    // The "pattern" option can be given as a single string or as an array of strings, allowing the pattern to be split between multiple lines. The entries of the array are concatenated together to form the final pattern.
+    pattern: string | string[],
     fix?: string,
     maxLines?: number,
     message: string,
+    regexEngine: RegexEngine,
     caseInsensitive: boolean,
-    severity?: Severity
+    ignoreWhitespace: boolean;
+    severity?: Severity;
 };
+
+// Add a utility function to normalize the pattern.
+function normalizePatternConfig(pattern: string | string[]): string {
+    if (Array.isArray(pattern)) {
+        return pattern.join(''); // Join the array into a single string.
+    }
+    return pattern;
+}
 
 class RuleConfigDefault
 {
     // static Fix = '$&';
     static Language = 'plaintext';
     static MaxLines = 1;
+    static RegexEngine = RegexEngine.REGEX_PLUS;
     static CaseInsensitive = false;
+    static IgnoreWhitespace: boolean = false;
     static Severity: Severity = 'Warning';
 }
 
@@ -49,7 +70,8 @@ export class RuleSet {
 
     constructor (name: string, languages: string | string[], glob: string, rules: Rule[]) {
         this._name = name;
-        // "languages" may be given as a single language or as multiple, so we convert it to an array if it is a single string.
+        // The "languages" option may be given as a single language or as multiple strings in an array. 
+        // We convert it to an array if it is a single string so that we can handle it in a single way.
         if (typeof languages === 'string') {
             this.languages = [languages];
         } else {
@@ -61,10 +83,11 @@ export class RuleSet {
         // Check that the glob are OK.
         if (this.glob){
             if(!isGlob(glob)) {
+                logWarn(`${this._name} had a bad glob pattern: ${glob}`);
                 vscode.window.showErrorMessage(`${this._name} had a bad glob pattern: ${glob}`);
             }
         } else {
-            dryerLintLog(`No glob found for ${this}.`);
+            logInfo(`No glob found for ${this}.`);
         }
     }
 
@@ -82,16 +105,17 @@ export class RuleSet {
 
     private doesMatchGlob(filePath: string): boolean {
 
-        // TODO: We don't handle multiroot workspaces: https://code.visualstudio.com/docs/editor/workspaces/workspaces#_multiroot-workspace
-        const workspaceFolder: string  | undefined = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-        if (workspaceFolder === undefined) {
-            return false;
-        }
-        const relativePathFromWorkspaceRoot = path.relative(workspaceFolder, filePath);
-
-        // Check if the path to the file (relative to the root of the workspace) mathces the glob pattern.
-        const doesMatchGlob = minimatch(relativePathFromWorkspaceRoot, this.glob, {dot: true});
-        return doesMatchGlob;
+        // Create a list of workspace folders. If there are no workspace folders, use an empty list, which will cause the "some" function to return false.
+        const workspaceFolders = vscode.workspace.workspaceFolders || [];
+        const doesGlobMatchRelativeToAnyWorkspace = workspaceFolders.some(folder => {
+            // Get the path to the file relative to the root of the workspace.
+            const relativePathFromWorkspaceRoot = path.relative(folder.uri.fsPath, filePath);
+            
+            // Check if the path to the file (relative to the root of the workspace) mathces the glob pattern.
+            const doesMatchGlob = minimatch(relativePathFromWorkspaceRoot, this.glob, {dot: true});
+            return doesMatchGlob;
+        });
+        return doesGlobMatchRelativeToAnyWorkspace;
     }
 
     // Get a vscode.DocumentSelector, as described here: https://code.visualstudio.com/api/references/document-selector
@@ -121,7 +145,7 @@ export class RuleSet {
         // Print a message for debugging.
         fixableDiagnostics.forEach(
             (diagnostic) => {
-                dryerLintLog(`A diagnostic is active at the selected text: ${diagnostic}`);
+                logDebug(`A diagnostic is active at the selected text: ${diagnostic}`);
             }
         );
         return fixableDiagnostics;
@@ -131,18 +155,22 @@ export class RuleSet {
         return this.rules.filter(rule => rule.fix !== undefined);
     }
 
-    static getAllRules() {
-        return RuleSet.all.concat([RuleSet.legacyRuleSet]);
+    static getAllRules(): RuleSet[] {
+        if (RuleSet.legacyRuleSet == undefined) {
+            return RuleSet.all;
+        } else {
+            return RuleSet.all.concat([RuleSet.legacyRuleSet]);
+        }
     }
 
     public static getMatchingRuleSets(document: vscode.TextDocument): RuleSet[] {
         // While we are working on deprecating the old method of specifying rules, we include it into the set of rules we apply
-        const allRuleSetsIncludingLegacy = RuleSet.all.concat([RuleSet.legacyRuleSet]);
+        const allRuleSetsIncludingLegacy: RuleSet[] = RuleSet.getAllRules();
 
         const filteredRuleSets: RuleSet[] = allRuleSetsIncludingLegacy.filter(
             (ruleSet) => ruleSet.doesMatchDocument(document)
         );
-        dryerLintLog(`getMatchingRuleSets() Found ${filteredRuleSets.length} ruleSets matching "${path.basename(document.fileName)}".`);
+        logInfo(`getMatchingRuleSets() Found ${filteredRuleSets.length} ruleSets matching "${path.basename(document.fileName)}".`);
         return filteredRuleSets;
     }
 
@@ -152,21 +180,43 @@ export class RuleSet {
     }
 
     static loadRules(): void {
-        RuleSet.all = RuleSet.getRules();
+        try{
+            RuleSet.all = RuleSet.getRules();
+        } catch (e) {
+            logErrorObj(`loadRules() failed.`, e)
+        }
     }
     
     static getRules(): RuleSet[] {
-        dryerLintLog(`Reading list of RulesSets from settings.`);
+        logInfo(`Reading list of RulesSets from settings.`);
         const dryerLintConfig: vscode.WorkspaceConfiguration  = vscode.workspace.getConfiguration("dryerLint");
         
         if (!dryerLintConfig.has("ruleSets")){
-            throw new Error("The setting dryerLint.ruleSets was not found!");
+            throw new Error(`No "dryerLint.ruleSets" setting was not found!`);
         }
-        const ruleSetsConfigs: RuleSetConfig[] = dryerLintConfig.get<RuleSetConfig[]>("ruleSets") || [];
         
-        if (ruleSetsConfigs.length == 0){
-            throw new Error("The setting dryerLint.ruleSets was empty!");
+        // Handle the rule set being given as either an array or dictionary. 
+        // We are moving away from arrays and prefer dictionaries, but we continue to support
+        // arrays for backward compatibility.
+        const ruleSetsConfigArrayOrDict = dryerLintConfig.get("ruleSets");
+        var ruleSetsConfigsArray: RuleSetConfig[] = [];
+        if (Array.isArray(ruleSetsConfigArrayOrDict)) {// If list of rule sets is given as an array...
+            ruleSetsConfigsArray = dryerLintConfig.get<RuleSetConfig[]>("ruleSets") || [];
+        } else {// If configuration is a dictionary...
+            const ruleSetsConfigsDict: { [id: string] : RuleSetConfig; } = dryerLintConfig.get<{ [id: string] : RuleSetConfig; }>("ruleSets") || {};
+            // Map the dictionary to an array, storing the name in the "name" property.
+            ruleSetsConfigsArray = Object.keys(ruleSetsConfigsDict).flatMap(
+                (name: string) => {
+                    // Set the name to the key given for the rule set.
+                    ruleSetsConfigsDict[name].name = name;
+                    return ruleSetsConfigsDict[name];
+                }
+            )
         }
+        
+        // if (ruleSetsConfigs.length == 0){
+        //     throw new Error("The setting dryerLint.ruleSets was empty!");
+        // }
 
         // !! Print statements for debugging.
         // dryerLintLog(`ruleSetsConfigs:`)
@@ -176,16 +226,37 @@ export class RuleSet {
         //     }
         // )
 
-        const ruleSets: RuleSet[] =  ruleSetsConfigs.flatMap(
+        const ruleSets: RuleSet[] =  ruleSetsConfigsArray.flatMap(
             (ruleSetConfig: RuleSetConfig) => {
-                const rules: Rule[] = ruleSetConfig.rules.flatMap(rule => Rule.ruleConfigToRule(rule) || [] );
+                var rules: Rule[];
+                if (Array.isArray(ruleSetConfig.rules)) {
+                    // Generate the array of rules from the array of RuleConfigs.
+                    rules = ruleSetConfig.rules.flatMap(rule => {
+                        return Rule.ruleConfigToRule(rule) || [];
+                    });
+                } else {
+                    // Cast to a dictionary.
+                    const ruleConfigsDict: {[name: string]: RuleConfig;} = ruleSetConfig.rules;
+                    
+                    // Generate an array of Rules from the dictionary of RuleConfigs.
+                    rules = Object.keys(ruleConfigsDict).flatMap(
+                        (name: string) => {
+                            rules
+                            const ruleConfig = ruleConfigsDict[name];
+                            // Set "name" property.
+                            ruleConfig.name = name;
+                            // Convert the RuleConfig to a Rule (or an empty element, if an error occurs)
+                            return Rule.ruleConfigToRule(ruleConfig) || [];
+                        }
+                    )
+                }
                 const glob: string = ruleSetConfig.glob || "**";
                 const ruleSet: RuleSet = new RuleSet(ruleSetConfig.name, ruleSetConfig.language, glob, rules);
-                dryerLintLog(`\t${ruleSet}`);
+                logDebug(`\t${ruleSet}`);
                 return ruleSet;
             }
         );
-        dryerLintLog(`\tLoaded ${ruleSets.length} RuleSets.`);
+        logInfo(`\tLoaded ${ruleSets.length} RuleSets.`);
         return ruleSets;
         // var n_invalid_rules = ruleList.length - valid_rules.length
         // if (n_invalid_rules == 0) {
@@ -197,14 +268,22 @@ export class RuleSet {
     }
 
     static loadLegacyRuleSet() {
-        dryerLintLog(`Reading list of legacy rules from settings.`);
-        const dryer_lint_config = vscode.workspace.getConfiguration(ConfigSectionName);
-        const language = dryer_lint_config.get<string | string[]>('language') || [];
-        const ruleConfigs: RuleConfig[] = dryer_lint_config.get<RuleConfig[]>('rules') ?? [];
+        logInfo(`Reading list of legacy rules from settings.`);
+        try {
+            const dryer_lint_config = vscode.workspace.getConfiguration(ConfigSectionName);
+            const language = dryer_lint_config.get<string | string[]>('language') || [];
+            const ruleConfigs: RuleConfig[] = dryer_lint_config.get<RuleConfig[]>('rules') ?? [];
 
-        const rules = ruleConfigs.flatMap(rule => Rule.ruleConfigToRule(rule) || []);
-        const glob = "**";
-        RuleSet.legacyRuleSet = new RuleSet('legacy rules', language, glob, rules);
+            const rules = ruleConfigs.flatMap(rule => Rule.ruleConfigToRule(rule) || []);
+            const glob = "**";
+            RuleSet.legacyRuleSet = new RuleSet('legacy rules', language, glob, rules);
+
+            logInfo(`Found ${rules.length} rules in the legacy rules.`)
+        } catch (error) {
+            logErrorObj(`Reading the legacy rules failed.`, error)
+            vscode.window.showErrorMessage(`Reading the legacy rules failed. Error: "${error}".`)
+        }
+        
     }
 }
 
@@ -234,18 +313,19 @@ export default class Rule
     public static loadAll() {
         // Whenever the Dryer Lint configurations change, update the list of rules.
         vscode.workspace.onDidChangeConfiguration(event => {
-            if (event.affectsConfiguration(ConfigSectionName)) {
-                // While we work on deprecating this, we load the legacy rules.
-                RuleSet.loadLegacyRuleSet();
-                invalidateDocumentStatusCache();
-                dryerLintLog(`The setting "${ConfigSectionName}" changed. Reloading rules.`);
-            }
-        });
-        vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration(RuleSetsConfigName)) {
-                dryerLintLog(`The setting "${RuleSetsConfigName}" changed. Reloading rules.`);
+                logInfo(`The list of rule sets "${RuleSetsConfigName}" changed in the settings.`);
                 RuleSet.loadRules();
                 invalidateDocumentStatusCache();
+            } 
+            // 
+            if (event.affectsConfiguration(ConfigSectionName)) {
+                // While we work on deprecating this, we load the legacy rules.
+                logInfo(`The list of legacy rules "${ConfigSectionName}" changed in the settings.`);
+                RuleSet.loadLegacyRuleSet();
+                invalidateDocumentStatusCache();
+            } else {
+                // Change to settings does not affect DryerLint.
             }
         });
 
@@ -265,13 +345,14 @@ export default class Rule
             return undefined;
         }
 
-
-        // Set the message to "name" if "message" is empty.
         var name = ruleConfig.name;
+        // Set the message to "name" if "message" is empty.
         var message = ruleConfig.message || ruleConfig.name;
         var maxLines = ruleConfig.maxLines || RuleConfigDefault.MaxLines;
-        var pattern = ruleConfig.pattern;
+        var pattern: string = normalizePatternConfig(ruleConfig.pattern);
+        var regexEngine: RegexEngine = ruleConfig.regexEngine || RuleConfigDefault.RegexEngine;
         var caseInsensitive = ruleConfig.caseInsensitive || RuleConfigDefault.CaseInsensitive;
+        var ignoreWhitespace = ruleConfig.ignoreWhitespace || RuleConfigDefault.IgnoreWhitespace;
         var severity = vscode.DiagnosticSeverity[ruleConfig.severity || RuleConfigDefault.Severity];
         var fix = ruleConfig.fix;
 
@@ -297,15 +378,41 @@ export default class Rule
             return undefined;
         }
 
+        // Set the RegEx flags.
+        // * g: Find all of the matches.
+        // * i: (Optional) Case insensitive.
+        var flags = caseInsensitive? `gmi` : `gm`;
         var regex: RegExp | undefined;
         try {
-            // Set the RegEx flags.
-            // * g: Find all of the matches.
-            // * i: (Optional) Case insensitive.
-            var flags = caseInsensitive? `gmi` : `gm`;
-            regex = new RegExp(pattern, flags);
+            switch (regexEngine) {
+                case RegexEngine.LEGACY:
+                        regex = new RegExp(pattern, flags);
+                    break;
+                case RegexEngine.REGEX_PLUS:
+                    regex = regexPlus({
+                        flags: flags,
+                        // Enabling "subclass" and disabling the "n" flag allows users to reference groups by the group number in messages and fixes.
+                        subclass: true,
+                        plugins: [recursion],
+                        disable: {
+                            // The "x" flag causes whitespace to be ignored. The negation here is confusing, but it is correct.
+                            // When ignoreWhitespace is true, we want to not disable the "x" flag, so that whitespace is ignored.
+                            // Alternatively, when ignoreWhitespace is false, we disable the "x" flag, so that whitespace is not ignored (restoring the default JS Regular Expression behavior).
+                            x: !ignoreWhitespace, 
+                            // Disable the "named capture only" mode, which turns unnamed groups (…) into noncapturing groups. 
+                            // With this disabled, we can reference groups by numbers in replacement strings (e.g., "$1"), but we need to set "subclass: true" to prevent the 
+                            n: true,
+                        }
+                    })({raw: [pattern]});
+                    break;
+                default:
+                    throw new Error(`Unexpected case: ${regexEngine}.`)
+            }
+            logTrace(`Regex for "${ruleConfig.name}" is "${regex}".`);
         } catch (error) {
-            vscode.window.showErrorMessage(`Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".`);
+            const errorMsg: string = `Could not construct Regex for "${ruleConfig.name}"\nError: "${error}".\nPattern: ${pattern}.`;
+            logWarn(errorMsg);
+            vscode.window.showErrorMessage(errorMsg);
             return undefined;
         }
 

@@ -1,5 +1,34 @@
 # Dryer Lint Change Log
 
+## 2.0
+
+* Changed the default regex engine from the built-in JavaScript processor to the [Regex+](https://github.com/slevithan/regex) processor, which provides many new regex features, including  
+  * Possessive quantifiers (`"*+"`, `"++"`, and `"?"`) to block a quantifier from backtracking (or "returning characters"). Thus, `"a*+"` means
+  * Ignores white space in patterns and allows for comments. 
+  * Subroutines (using a group subpattern using `\g<groupname>`)
+  * Subroutine definition groups (i.e., using `(?(DEFINE) ... )`)
+  * Atomic groups to block backtracking to before the start of the group (can improve performance).
+  * Recursion, which helpful for matching balanced delimiters, such as parentheses. Uses the [regex-recursion](https://github.com/slevithan/regex-recursion) plugin.
+* Changed the data type for the list of rule sets and the list of rules within a rule set to be defined as a dictionary instead of an array. Arrays are deprecated but will still work (for now). Dictionaries have the following advantages:
+  - VS Code will merge dictionaries from different settings files, so you define rules separately in User settings and workspace settings.
+  - Navigating a long dictionary is somewhat easier. If a rule or rule set is collapsed in the editor, then the key is still visible. Also, then keys are displayed in the VS Code "Outline" panel.
+* The patterns for rules can now be defined as an array of strings to improve readability. All the entries are concatenated into a single string to define the regex.
+* Make `"message"` field optional in rules and use `"name"` field instead of `"message"` if `"message"` is missing.
+* Improved error checking so fewer errors will be fatal.
+* Development: Implemented multiple logging levels to make the logs more manageable.
+* Fix: Clear diagnostics when a file is closed, deleted, or renamed. 
+* Fix: Handle gracefully the case where there is no legacy rule set. 
+* Fix: RuleSet file globs now match against any workspace root in multi-root workspaces instead of only the first one.
+
+
+### Breaking changes in 2.0
+* Changed the default regex engine from the built-in JavaScript processor to the Regex+ processor, which requires stricter syntax but has expanded functionality. This means old regular expressions will break. To restore the old engine, add `"regexEngine": "legacy"` to a rule. 
+Examples of patterns that were previously OK but will fail with the new regex engine include:
+
+  * Unescaped `{` or `}`, except for when used as a quantifier. E.g., `\\text{Hello}` worked, previously, but now will cause an error. To compile with the stricter rules, change the pattern to `\\text\{Hello\}`.
+  * Similarly, "[" and "]" must be escaped as `\[` and `\]` unless used to match a character class, like `[abc]` or `[m-z]`.
+* White spaces in patterns are now ignored by default. To match a horizontal white space, use `[ \\t]`. To match any white space, use `\\s`.
+
 ## 1.4.1 
 
 Significantly improve performance for finding the rule sets that match a given file. 
@@ -10,7 +39,7 @@ In informal testing, the time required to find the matching rule sets changed fr
 
 ## 1.4 
 
-Use caching for each document to store the list of RuleSets. 
+Use caching for each document to store the list of `RuleSet`s. 
 This significantly improves performance for diagnostic refreshes.
 
 ## 1.3 

@@ -39,11 +39,11 @@
             }
         ],
         "configuration": {
-            "title": "dryerLint",
+            "title": "Dryer Lint",
             "properties": {
                 "dryerLint.ruleSets": {
-                    "type": "array",
-                    "description": "Contains a list of Dryer Lint rule sets for defining groups of linting rules in different languages.",
+                    "type": "object",
+                    "description": "Contains a dictionary of Dryer Lint rule sets for defining groups of linting rules in different languages.",
                     "items": {
                         "required": [
                             "name",
@@ -70,8 +70,8 @@
                                 "description": "A file glob to select which files to apply this rule set to."
                             },
                             "rules": {
-                                "type": "array",
-                                "description": "List of Dryer Lint rules.",
+                                "type": "object",
+                                "description": "Dictionary of Dryer Lint rules.",
                                 "items": {
                                     "required": [
                                         "name",
@@ -167,9 +167,12 @@
                                         "description": "A concise name for the rule."
                                     },
                                     "pattern": {
-                                        "type": "string",
+                                        "type": [
+                                            "string",
+                                            "array"
+                                        ],
                                         "minLength": 1,
-                                        "description": "A regular expression pattern to match a rule violation."
+                                        "description": "A regular expression pattern to match a rule violation. The pattern can be split into entries of an array, allowing them to be typed on separate lines, for readability. All entries are concatenated without spaces."
                                     },
                                     "maxLines": {
                                         "type": "integer",
@@ -197,10 +200,24 @@
                                         "type": "string",
                                         "description": "The fix to apply. Substitution tokens starting with `$` can be used."
                                     },
+                                    "regexEngine": {
+                                        "type": "string",
+                                        "enum": [
+                                            "legacy",
+                                            "regex+"
+                                        ],
+                                        "default": "regex+",
+                                        "description": "Select the regex engine used to process regular expressions for this rule. The \"regex+\" engine is recommended for all new rules. You can use \"legacy\" to keep existing rules that would break with the \"regex+\" engine."
+                                    },
                                     "caseInsensitive": {
                                         "type": "boolean",
                                         "default": false,
                                         "description": "Enable case insensitive Regex matching, to ignore capitalization."
+                                    },
+                                    "ignoreWhitespace": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Ignore white space in the Regex pattern, allowing for more readability."
                                     }
                                 }
                             }
@@ -225,7 +242,9 @@
     "dependencies": {
         "@types/is-glob": "^4.0.3",
         "@types/vscode": "^1.98.0",
-        "minimatch": "^10.0.1"
+        "minimatch": "^10.0.1",
+        "regex": "^6.0.1",
+        "regex-recursion-cjs": "^6.0.2"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",
