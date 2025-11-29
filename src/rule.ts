@@ -107,11 +107,13 @@ export class RuleSet {
 
         // Create a list of workspace folders. If there are no workspace folders, use an empty list, which will cause the "some" function to return false.
         const workspaceFolders = vscode.workspace.workspaceFolders || [];
+
+        // Loop through all of the workspace roots to see if the file path glob matches relative to any of them.
         const doesGlobMatchRelativeToAnyWorkspace = workspaceFolders.some(folder => {
             // Get the path to the file relative to the root of the workspace.
             const relativePathFromWorkspaceRoot = path.relative(folder.uri.fsPath, filePath);
             
-            // Check if the path to the file (relative to the root of the workspace) mathces the glob pattern.
+            // Check if the path to the file (relative to the root of the workspace) matches the glob pattern.
             const doesMatchGlob = minimatch(relativePathFromWorkspaceRoot, this.glob, {dot: true});
             return doesMatchGlob;
         });

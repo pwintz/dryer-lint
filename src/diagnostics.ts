@@ -231,7 +231,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
     const start_time = Date.now();
 
     const ruleSets: RuleSet[] = documentStatusCache.getRuleSets(document);
-    logDebug(`Time from start of refreshDiagnostics until getting matching rule sets: ${Date.now() - start_time}`)
+    logDebug(`Time from start of refreshDiagnostics until getting matching rule sets: ${Date.now() - start_time}`);
 
     if (ruleSets?.length > 0) {
         logInfo(`Refreshing diagnostics. Found ${ruleSets.length} rule sets for\n\t"${document.fileName}": [\n\t${ruleSets.join('\n\t')}\n]`);

@@ -17,3 +17,4 @@ dryer-lint-test-workspace/
 
 test_*.tex
 test_*.txt
+publish-pre-release.sh
