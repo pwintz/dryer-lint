@@ -26,18 +26,15 @@ Rules are grouped into one or more "rule sets".
 For each rule set, you can set one or more languages where the rule applies and a file glob (such as `**/settings.json`). 
 Here is an example:
 ```jsonc
-"dryerLint.ruleSets": [
-    {
-        "name": "Example Rule Set 1",
+"dryerLint.ruleSets": {
+    "Example Rule Set 1": {
         // Set the name of the languages where your rules apply
         "language": "c++",
         // Set a file glob (optional)
         "glob": "**/filename.c",
         // Set a list of rules.
-        "rules": [
-            {
-                // "name" is a string used to identify the rule
-                "name": "No apples or oranges. Only bananas",
+        "rules": {
+            "No apples or oranges. Only bananas": {
                 // "pattern" is a JavaScript regular expression that shows diagnostic when matched
                 "pattern": "(apple|orange)",
                 // "message" is a string to show in the "Problems" VS Code panel or other places that diagnostics are shown.
@@ -51,10 +48,9 @@ Here is an example:
                 // "caseInsensitive" (optional) is a boolean value that sets whether the regular expression uses the case insensitive flag "i". Default is false. 
                 "caseInsensitive": true
             },
-        ]
+        }
     }, 
-    {
-        "name": "Example Rule Set 2", 
+    "Example Rule Set 2": {
         "language": ["javascript", "typescript"],
         "rules": [
             {
@@ -68,7 +64,7 @@ Here is an example:
         ]
     },
     // ...
-]
+}
 ```
 <!-- 
 ```jsonc
@@ -106,7 +102,7 @@ We highly recommend the use of Error Lens with Dryer Lint.
 
 To apply all of the fixes in the active editor at once (or, as many as possible that don't overlap), run `"Dryer Lint: Fix All"` from the VS Code command pallet. 
 
-![screensh  ot of "fix all" command in command pallet](assets/fix_all_screenshot.png)
+![screenshot of "fix all" command in command pallet](assets/fix_all_screenshot.png)
 
 
 ## Writing Regular Expressions for Dryer Lint
@@ -128,10 +124,9 @@ A great tool for learning regex and writing and testing rules is [https://regex1
 Regex101.com allows you to save a regular expression. 
 You can then place a link to the saved regex so you can return to it in the future.
 ```jsonc
-{
+"\"l\" instead of \"\\ell\"": {
     // Link: https://regex101.com/r/QsDziM/latest
     // Match any single letter "l" that is not part of a word or wrapped in "\textsc{...}".
-    "name": "\"l\" instead of \"\\ell\"",
     "pattern": "(?<![a-zA-Z]|\\\\textsc\\{)l(?=[ _\\r\\n]|\\W)",
     "message": "Avoid \"l\" as a symbol. Use \"\\ell\" instead.",
     "severity": "Warning",
@@ -174,9 +169,8 @@ In each rule definition, the `"fix"` and `"message"` fields can use replacements
 The string `$0` is replaced by the entire match, `$1` is replaced with the contents of the first group capture, and `"$2"` is replaced with the second, and so on.
 The following is an example of a rule for LaTeX, where the first group `(cref|eqref|ref|cite)` is substituted into the error message.
 ```jsonc
-{
+"Empty Reference or Citation": {
     // Check for \cref{}, \cite{}, \ref{}, or \eqref{} occurring without arguments.
-    "name": "Empty Reference or Citation",
     "message": "Empty \\$1{}.",
     "pattern": "\\\\(cref|eqref|ref|cite)\\{\\s*\\}",
     "severity": "Error"
@@ -260,72 +254,153 @@ in a section of code where Dryer Lint is disabled will not cause `"my cool rulz"
 
 ## More examples
 
-The following is a more complex example that uses the **replace** function to organize imports at the top of a Nim file.
-
-```jsonc
+<!-- The following is a more complex example that uses the **replace** function to organize imports at the top of a Nim file. -->
+<!-- ```jsonc
 // .vscode/settings.json
 {
     ...
 
-    "dryerLint.ruleSets": [
-        {
-            "name": "nim imports",
+    "dryerLint.ruleSets": {
+        "nim imports": {
             "language": "nim",
-            "rules": [
-                {
+            "rules": {
+                "nim imports": {
                     "fix": "$1\r\n$4",
                     "message": "organization: bad spacing in import group",
                     "maxLines": 0,
-                    "name": "organization-import",
                     "pattern": "(^import ([.\\w]+)/.+)(\\r\\n){2,}(^import \\2/.+)"
                 },
-                {
+                "organization-import": {
                     "fix": "$1\r\n\r\n$4",
                     "message": "organization: bad spacing in import group",
                     "maxLines": 0,
-                   "name": "organization-import",
                     "pattern": "(^import ([.\\w]+)/.+)(\\r\\n|(?:\\r\\n){3,})(^import (?!\\2/).+)"
                 }
-            ]
+            }
         }
-    ]
+    }
     ...
 }
-```
+``` -->
 
-This configuration ensures import groups are separated by 1 newline and ensures imports within each import group do not have newlines between them.
+<!-- This configuration ensures import groups are separated by 1 newline and ensures imports within each import group do not have newlines between them. -->
 
 <!-- The `name` configuration plays an important part here in that all rules with the same name are considered part of a *rule group*. Rules in such groups that produce diagnostics in overlapping ranges of text behave as one rule that can match multiple rule violations and apply the corresponding fixes to text in their combined ranges. -->
 
 The following is a simple configuration that issues diagnostics for maximum characters exceeded in a line:
-
 ```jsonc
 {
     ...
-    "dryerLint.ruleSets": [
-        {
-            "name": "Column Width Example",
+    "dryerLint.ruleSets": {
+        "Max column width": {
             "language": ["python", "javascript", "typescript"],
-            "rules": [
-                {
+            "rules": {
+                "format-line": {
                     "message": "format: 80 columns exceeded",
-                    "name": "format-line",
+                    "name": ,
                     "pattern": "^.{81,120}$",
                     "severity": "Warning"
                 },
-                {
+                "format-line": {
                     "message": "format: 120 columns exceeded",
-                    "name": "format-line",
                     "pattern": "^.{121,}$",
                     "severity": "Error"
                 }
-            ]
+            }
         }
-    ]
+    }
     ...
 }
 ```
 
+## Changes to Dryer-Lint Settings Format
+
+I am trying to make Dryer Lint backwards compatible while also making changes that dramatically improve the extension. 
+This means that I have defined a new format for the `"dryerLint.ruleSets"` setting in v2.0 while also continuing to support the v1.4 format (at least for now). 
+The two formats are incompatible, so you need to modify your settings before you can start taking advantage of the new v2.0 features.  
+
+### Transition to v2.0 ownward
+
+In v2.0, the list of rule sets is given as 
+
+```jsonc
+
+"dryerLint.ruleSets": {
+    "rule set 1": {   // First rule set
+        "name": "Example Rule Set 1",
+        "language": "c++",
+        "rules": {
+
+            "Rule 1": {
+                "name": "No apples or oranges. Only bananas",
+                "pattern": "(apple|orange)",
+                "message": "Don't use apples or oranges. Only bananas!",
+            },
+        }
+    }, 
+    "rule set 1": {   
+        
+        "name": "Example Rule Set 2", 
+        "language": ["javascript", "typescript"],
+        "rules": [
+            //
+        ]
+    },
+}
+```
+This is different from v1.4, which uses a list of dictionaries to store the list of rule sets in `"dryerLint.ruleSets"`, and the list of rules in `"rules"`.
+For instance
+
+```jsonc
+"dryerLint.ruleSets": [
+    {   // First rule set
+        "name": "Example Rule Set 1",
+        "language": "c++",
+        "rules": [
+            {
+                "name": "No apples or oranges. Only bananas",
+                "pattern": "(apple|orange)",
+                "message": "Don't use apples or oranges. Only bananas!",
+            },
+        ]
+    }, 
+    {   // Second rule set.
+        "name": "Example Rule Set 2", 
+        "language": ["javascript", "typescript"],
+        "rules": [
+            //
+        ]
+    },
+    // ...
+]
+```
+To keep existing v1.4 rules while allowing you to start updating to the v2.0 format, change `"dryerLint.ruleSets"` to `"dryerLint.ruleSets.legacy" for the v1.4 list of rule sets:
+ ```jsonc
+ "dryerLint.ruleSets.legacy": [
+     {   // First rule set
+         "name": "Example Rule Set 1",
+         "language": "c++",
+         "rules": [
+             {
+                 "name": "No apples or oranges. Only bananas",
+                 "pattern": "(apple|orange)",
+                 "message": "Don't use apples or oranges. Only bananas!",
+             },
+         ]
+     }, 
+     {   // Second rule set.
+         "name": "Example Rule Set 2", 
+         "language": ["javascript", "typescript"],
+         "rules": [
+             //
+         ]
+     },
+     // ...
+ ]
+ ```
+ Define new rule sets using the v2.0 format in the `"dryerLint.ruleSets"` setting.
+
+The advantage of the new format is that VSCode will merge settings defined as dictionaries, but not lists, so the new format allows you to define rule sets in user settings and workspace settings. 
 
 # Related Projects
 

@@ -41,6 +41,10 @@
         "configuration": {
             "title": "Dryer Lint",
             "properties": {
+                "dryerLint.ruleSets.legacy": {
+                    "type": "list",
+                    "deprecationMessage": "Deprecated: Use \"dryerLint.ruleSets\" instead. The property \"dryerLint.ruleSets.legacy\" is provided to allow for the legacy usage of \"dryerLint.ruleSets\", which uses a list of rule set dictionaries instead of a dictionary of rule set dictionaries. See the README for details."
+                },
                 "dryerLint.ruleSets": {
                     "type": "object",
                     "description": "Contains a dictionary of Dryer Lint rule sets for defining groups of linting rules in different languages.",
