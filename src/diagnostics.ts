@@ -98,7 +98,7 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
             })
     );  
 
-    // If there is an active text editor, then immediately refresh the diagnostics to include the dryerLint diagnositics.
+    // If there is an active text editor, then immediately refresh the diagnostics to include the dryerLint diagnostics.
     // This should occur after subscribing onDidChangeActiveTextEditor, in case an editor becomes active after subscribing, but before executing these lines of code.
     if (vscode.window.activeTextEditor) {
         tryRefreshDiagnostics(vscode.window.activeTextEditor.document, diagnosticsCollections, "initial activation");
@@ -109,7 +109,7 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
         vscode.workspace.onDidCloseTextDocument((document: vscode.TextDocument) => {
             clearDiagnostics(document.uri, diagnosticsCollections);
         })
-    )
+    );
     
     // Clear diagnostics when a file is deleted.
     context.subscriptions.push(
@@ -118,7 +118,7 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
                 clearDiagnostics(uri, diagnosticsCollections);
             });
         })
-    )
+    );
 
     // Clear diagnostics when a file is renamed.
     context.subscriptions.push(
@@ -127,18 +127,18 @@ export default function activateDiagnostics(context: vscode.ExtensionContext): v
                 clearDiagnostics(file.oldUri, diagnosticsCollections);
             });
         })
-    )
+    );
 
 }
 
 class DocumentStatus {
     // A data type for storing the status of a document, including the version number and the rule sets that are applied to it.
     version: number;
-    ruleSets: RuleSet[] = []
-    uri: string
+    ruleSets: RuleSet[] = [];
+    uri: string;
     
     constructor(document: vscode.TextDocument) {
-        this.uri = document.uri.toString()
+        this.uri = document.uri.toString();
         this.version = document.version;
         this.ruleSets = RuleSet.getMatchingRuleSets(document);
     }
@@ -172,7 +172,7 @@ class DocumentStatusCache {
         const uri: string = document.uri.toString();
         const cachedStatus: DocumentStatus | undefined = this.cache[uri];
         if (cachedStatus === undefined) {
-            this.cache[uri] = new DocumentStatus(document)
+            this.cache[uri] = new DocumentStatus(document);
         } else if (cachedStatus.version !== document.version) {
             this.cache[uri].version = document.version;
         }
@@ -249,7 +249,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
         diagnostics.set(document.uri, []);
         return;
     }
-    logDebug(`Time from start of refreshDiagnostics until getting reduced rule sets: ${Date.now() - start_time}`)
+    logDebug(`Time from start of refreshDiagnostics until getting reduced rule sets: ${Date.now() - start_time}`);
 
     var commentChar = util.getLineCommentChar(document);
     if (!commentChar) {
@@ -323,7 +323,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
             }
         }
     }
-    logDebug(`Time from start of refreshDiagnostics until checking which rule sets are enabled at each line: ${Date.now() - start_time}`)
+    logDebug(`Time from start of refreshDiagnostics until checking which rule sets are enabled at each line: ${Date.now() - start_time}`);
 
     const diagnosticList: RegexMatchDiagnostic[] = [];
 
@@ -369,7 +369,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
             logDebug(`Checking rule took ${Date.now() - rule_start_time} ms: "${rule.name}"`);
         }// End of for-loop over "rules"
     }
-    logDebug(`Time until checking all rule sets finished: ${Date.now() - start_time}`)
+    logDebug(`Time until checking all rule sets finished: ${Date.now() - start_time}`);
 
     // Display the time required to check in the log and status bar. 
     const run_time = Date.now() - start_time;
@@ -377,7 +377,7 @@ export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: v
     diagnostics.set(document.uri, diagnosticList);
     logInfo(`Refresed diagnostics. Found ${diagnosticList.length} diagnostics in ${run_time} ms for ${n_rules} rules from ${ruleSets.length} RuleSets applied to ${document.lineCount} lines in\n${document.fileName}.`);
     vscode.window.setStatusBarMessage(`Dryer Lint refresh: ${run_time} ms`, 2*1000);
-    logInfo(`Time to refresh diagnostics: ${Date.now() - start_time} ms.`)
+    logInfo(`Time to refresh diagnostics: ${Date.now() - start_time} ms.`);
 }
 
 function rangeFromMatch(

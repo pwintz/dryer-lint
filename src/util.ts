@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 
 export function sortedIndex<T>(sortedArray: T[], item: T, comparator: (a: T, b: T) => boolean) {
+    // Find the lowest index in sortedArray where item is greater than or equal to the entry.
+    // Inputs: 
+    // - sortedArray - MUST be pre-sorted.
+    // - item        
+    // - comparator
     let lo = 0;
     let hi = sortedArray.length;
 

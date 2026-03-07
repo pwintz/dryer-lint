@@ -12,19 +12,19 @@ export function activate(context: vscode.ExtensionContext) {
         // Create the list of rules.
         Rule.loadAll();
     } catch (e) {
-        logErrorObj(`Error in extension activation while loading rules`, e)
+        logErrorObj(`Error in extension activation while loading rules`, e);
     }
         
     try {
         activateFixes(context);
     } catch (e) {
-        logErrorObj(`Error in extension activation while activating fixes`, e)
+        logErrorObj(`Error in extension activation while activating fixes`, e);
     }
 
     try {
         activateDiagnostics(context);
     } catch (e) {
-        logErrorObj(`Error in extension activation while activating diagnostics`, e)
+        logErrorObj(`Error in extension activation while activating diagnostics`, e);
     }
         
     context.subscriptions.push(vscode.commands.registerCommand('dryerLint.fixAllInActiveFile', fixAllInActiveFile));

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { logTrace, logDebug, logInfo, logWarn, logErrorMsg, logErrorObj } from './extension';
 import path = require('path');
-import { minimatch } from 'minimatch'
+import { minimatch } from 'minimatch';
 import isGlob = require("is-glob");
 import { invalidateDocumentStatusCache, RegexMatchDiagnostic } from './diagnostics';
 import {regex as regexPlus, pattern as patternPlus} from 'regex';
