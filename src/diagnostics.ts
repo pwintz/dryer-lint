@@ -158,10 +158,9 @@ class DocumentStatusCache {
         const cachedStatus: DocumentStatus | undefined = this.cache[uri];
         if (cachedStatus === undefined) {
             return true;
-        } else if (cachedStatus.version !== document.version) {
-            return true
         } else {
-            return false;
+            // The cached version of the document is stale if it does not match the current version.
+            return cachedStatus.version !== document.version;
         }
     }
 
@@ -179,15 +178,20 @@ class DocumentStatusCache {
         return this.cache[uri].ruleSets;
     }
 
-    invalidate() {
-        this.cache = {}
+    invalidateDocument(uri: vscode.Uri) {
+        // Remove the URI from the cache.
+        delete this.cache[uri.toString()];
+    }
+
+    invalidateAll() {
+        this.cache = {};
     }
 }
 
 const documentStatusCache = new DocumentStatusCache();
 
 export function invalidateDocumentStatusCache() {
-    documentStatusCache.invalidate();
+    documentStatusCache.invalidateAll();
 }
 
 function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollections: vscode.DiagnosticCollection, reason: string): void {
@@ -218,6 +222,7 @@ function tryRefreshDiagnostics(document: vscode.TextDocument, diagnosticsCollect
 
 export function clearDiagnostics(uri: vscode.Uri, diagnosticsCollections: vscode.DiagnosticCollection) {
     diagnosticsCollections.set(uri, []);  
+    documentStatusCache.invalidateDocument(uri);
 }
 
 export function refreshDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
