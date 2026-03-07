@@ -190,11 +190,9 @@ export class RuleSet {
     }
 
     static readRuleSetConfigs(dryerLintConfig: vscode.WorkspaceConfiguration, ruleSetConfigName: string): RuleSetConfig[] {
-        // If the given setting is not found, then return an empty array.
-        if (!dryerLintConfig.has(ruleSetConfigName)){
-            return [];
-        }
-        
+        // logTrace(`dryerLintConfig.has("${ruleSetConfigName}")=${dryerLintConfig.has(ruleSetConfigName)}`);   //true
+        // logTrace(`dryerLintConfig.get("${ruleSetConfigName}")=${dryerLintConfig.get(ruleSetConfigName)}`);   //null
+
         // Create an empty array.
         var ruleSetsConfigsArray: RuleSetConfig[] = [];
         
@@ -202,13 +200,19 @@ export class RuleSet {
         // We are moving away from arrays and prefer dictionaries, but we continue to support
         // arrays for backward compatibility.
         const ruleSetsConfigArrayOrDict = dryerLintConfig.get(ruleSetConfigName);
+        
+        // If the given setting is not found or has values undefined or null, then return an empty array.
+        if (!ruleSetsConfigArrayOrDict){
+            return [];
+        }
+        
         if (Array.isArray(ruleSetsConfigArrayOrDict)) {// If list of rule sets is given as an array...
             logDebug(`ruleSetsConfigArrayOrDict is an array.`);
             ruleSetsConfigsArray = ruleSetsConfigArrayOrDict;
             logTrace(`ruleSetsConfigsArray = ${JSON.stringify(ruleSetsConfigsArray)}.`);
         } else {// If configuration is a dictionary...
             logDebug(`ruleSetsConfigArrayOrDict is an object (dictionary).`);
-            const ruleSetsConfigsDict: { [id: string] : RuleSetConfig; } = dryerLintConfig.get<{ [id: string] : RuleSetConfig; }>("ruleSets") || {};
+            const ruleSetsConfigsDict: { [id: string] : RuleSetConfig; } = ruleSetsConfigArrayOrDict as { [id: string] : RuleSetConfig; };
             logTrace(`ruleSetsConfigsDict=${JSON.stringify(ruleSetsConfigsDict)}.`);
             // Map the dictionary to an array, storing the name in the "name" property.
             ruleSetsConfigsArray = Object.entries(ruleSetsConfigsDict).map(
