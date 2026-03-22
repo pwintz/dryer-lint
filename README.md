@@ -8,7 +8,10 @@ It is designed to
 - define user-specific lint rules for a given project or code style.
 - Enable automated fixes to rule violations. 
 
-Dryer Link is available in the [VS Code Extension Marketplace](https://marketplace.visualstudio.com/items?itemName=pwintz.dryer-lint) and [GitHub](https://github.com/pwintz/dryer-lint).
+Dryer Link is available at 
+- [VS Code Extension Marketplace](https://marketplace.visualstudio.com/items?itemName=pwintz.dryer-lint) 
+- [Open VSX Registry](https://open-vsx.org/extension/pwintz/dryer-lint)
+- [GitHub](https://github.com/pwintz/dryer-lint).
 
 Dryer Lint is based on the [`relint`](https://github.com/n0bra1n3r/relint) extension by Ryan Blonna (GitHub user [n0bra1n3r](https://github.com/n0bra1n3r)).
 
